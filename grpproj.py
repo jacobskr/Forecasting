@@ -11,9 +11,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import periodogram
 
-
-df = pd.read_csv('BikeSharingDaily.csv', parse_dates=True, index_col='date')
-df = df[['cnt', 'holiday', 'weekday', 'workingday']]
+df = pd.read_csv('BikeSharingDaily.csv', parse_dates=True, index_col='dteday')
+df = df[['cnt', 'holiday', 'weekday', 'workingday', 'weathersit']]
 df.index = pd.DatetimeIndex(df.index, freq='D')
 df.cnt.plot()
 
@@ -87,33 +86,34 @@ def auto_arima_checks(data, m_list, d_list, D_list, exog=None):
             for D in D_list:
                 for trend in tlist:
                     mod = auto_arima(data, start_p=1, start_q=1,
-                               max_p=10, max_q=10, m=m,
+                               max_p=4, max_q=4, m=m,
                                start_P=0, start_Q=0,
-                               max_P=10, max_Q=10,
+                               max_P=4, max_Q=4,
                                seasonal=True, d=d,
                                D=D, trace=True,
                                trend=trend,
                                exogenous=exog,
+                               disp=False,
                                error_action='ignore',  
                                suppress_warnings=True, 
                                stepwise=True)
                     AIC = mod.aic()
                     if AIC < best_AIC:
+                        best_AIC = AIC
                         stepwise_model = mod
     return stepwise_model
 
 
-auto_arima_checks(train.cnt, [1, 7, 12], [0, 1, 2], [0, 1, 2])
-m0 = SARIMAX(train.cnt, order=stepwise_model.order,
-             seasonal_order=stepwise_model.seasonal_order,
-             trend=stepwise_model.trend)
+m0_test = auto_arima_checks(train.cnt, [1, 7, 12], [0, 1, 2], [0, 1, 2])
+m0 = SARIMAX(train.cnt, order=(4, 2, 0), seasonal_order=(5, 2, 1, 12),
+             trend='ct')
 
-auto_arima_checks(train.cnt, [1, 7, 12], [0, 1, 2], [0, 1, 2], exog = holiday)
+m1_test = auto_arima_checks(train.cnt, [1, 7, 12], [0, 1, 2], [0, 1, 2], exog = holiday)
 m1 = SARIMAX(train.cnt, exog=holiday, order=stepwise_model.order,
              seasonal_order=stepwise_model.seasonal_order,
              trend=stepwise_model.trend)
 
-auto_arima_checks(train.cnt, [1, 7, 12], [0, 1, 2], [0, 1, 2], exog = workingday)
+m2_test = auto_arima_checks(train.cnt, [1, 7, 12], [0, 1, 2], [0, 1, 2], exog = workingday)
 m2 = SARIMAX(train.cnt, exog=workingday, order=stepwise_model.order,
              seasonal_order=stepwise_model.seasonal_order,
              trend=stepwise_model.trend)
