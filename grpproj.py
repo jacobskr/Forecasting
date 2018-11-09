@@ -85,6 +85,7 @@ def auto_arima_checks(data, m_list, d_list, D_list, exog=None):
         for d in d_list:
             for D in D_list:
                 for trend in tlist:
+<<<<<<< HEAD
                     mod = auto_arima(data, start_p=1, start_q=1,
                                max_p=4, max_q=4, m=m,
                                start_P=0, start_Q=0,
@@ -107,6 +108,33 @@ def auto_arima_checks(data, m_list, d_list, D_list, exog=None):
 m0_test = auto_arima_checks(train.cnt, [1, 7, 12], [0, 1, 2], [0, 1, 2])
 m0 = SARIMAX(train.cnt, order=(4, 2, 0), seasonal_order=(5, 2, 1, 12),
              trend='ct')
+=======
+                    try:
+                        mod = auto_arima(data, start_p=1, start_q=1,
+                                   max_p=4, max_q=4, m=m,
+                                   start_P=0, start_Q=0,
+                                   max_P=4, max_Q=4,
+                                   seasonal=True, d=d,
+                                   D=D, trace=True,
+                                   trend=trend,
+                                   exogenous=exog,
+                                   error_action='ignore',  
+                                   suppress_warnings=True, 
+                                   stepwise=True)
+                        AIC = mod.aic()
+                        if AIC < best_AIC:
+                            best_AIC = AIC
+                            stepwise_model = mod
+                    except AttributeError:
+                        continue
+    return stepwise_model
+
+
+auto_arima_checks(train.cnt, [7, 365.25], [0, 1, 2], [0, 1, 2])
+m0 = SARIMAX(train.cnt, order=stepwise_model.order,
+             seasonal_order=stepwise_model.seasonal_order,
+             trend=stepwise_model.trend)
+>>>>>>> 436d1475e057daf96ca87ab749d45b748b0dcc13
 
 m1_test = auto_arima_checks(train.cnt, [1, 7, 12], [0, 1, 2], [0, 1, 2], exog = holiday)
 m1 = SARIMAX(train.cnt, exog=holiday, order=stepwise_model.order,
