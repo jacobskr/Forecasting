@@ -6,6 +6,7 @@ require(fpp2)
 require(ggplot2)
 require(tidyverse)
 require(dplyr)
+require(nnfor)
 
 
 dta <- read.csv("US_OIL.csv")
@@ -133,5 +134,41 @@ autoplot(fc_arima.msts)
 
 
 checkresiduals(fit_seasons2)
+checkresiduals(fc_nn$residuals)
 Box.test(fit_seasons2$residuals)
 
+
+#Maybe a neural network will be nice
+  #no xregs
+fit_nn <- nnetar(oil_xregs.tr[, "barrels"], lambda = 0.5)
+autoplot(forecast(fit_nn, h=52))
+
+  #simulattion path for 9 possible future paths
+set.seed(2005)
+sim <- ts(matrix(0, nrow=30L, ncol=9L), frequency=365.25/7 , start = end(oil_xregs.tr)[1L]+(7/365.25))
+for(i in seq(9))
+  sim[,i] <- simulate(fit_nn, nsim=30L)
+autoplot(window(oil_xregs.tr[, "barrels"], start=1991+(38+(7*(nrow(oil_xregs.tr)-300)))/365.25)) + autolayer(sim)
+
+fc_nn <- forecast(fit_nn, PI=T, h=52)
+autoplot(fc_nn)
+Box.test(fit_nn$residuals)
+
+  #xregs
+fit_nn.xregs <- nnetar(oil_xregs.tr[, "barrels"], xreg = oil_xregs.tr[, c(2,3,4)], lambda = 0.5)
+fc_nn.xregs <- forecast(fit_nn.xregs, xreg = oil_xregs.val[, c(2,3,4)], PI=T, h=52)
+autoplot(fc_nn.xregs)
+
+checkresiduals(fc_nn.xregs$residuals)
+
+# "Extreme learning machines"
+fit_elm <- elm(oil_xregs.tr[, "barrels"], type="lasso")
+fc_elm <- forecast(fit_elm, PI=T, h=52)
+autoplot(fc_elm)
+
+
+fit_elm.xreg <- elm(oil_xregs.tr[, "barrels"], xreg=oil_xregs.tr[, c(2,3,4)])
+fc_elm.xreg <- forecast(fit_elm.xreg, xreg = oil_xregs[, c(2,3,4)], PI=T, h=52)
+autoplot(fc_elm.xreg)
+
+#Compare Models and Combine Models
