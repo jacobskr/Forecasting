@@ -31,7 +31,7 @@ oil_xregs.val <- window(oil_xregs, start=1991+(38+(7*(nrow(oil_xregs)-52)))/365.
 colnames <- c("barrels", "winter", "spring", "summer")
 colnames(oil_xregs.tr) <- colnames
 colnames(oil_xregs.val) <- colnames
-
+colnames(oil_xregs) <- colnames
 
 #naive model
 fc_naive <- naive(oil.tr, h = 52)
@@ -109,5 +109,15 @@ fc_comb <- forecast(bestfit2$fit, xreg=cbind(fourier(oil_xregs.tr, K=8, h=52), o
 autoplot(fc_comb, h=52)
 
 
-
+#Multiseasonal dataset
+wkly <- 365.25 / 7
+mthly <- wkly / 12
+oil_msts <- data.frame(dta[,2])
+oil_msts[,c(2,3,4)] <- seasons
+oil_msts <- msts(oil_msts, seasonal.periods=c(wkly, mthly), start=1991+38/365.25)
+oil_msts.tr <- window(oil_msts, end=1991+(38+(7*(nrow(oil_msts)-53)))/365.25)
+oil_msts.val <- window(oil_msts, start=1991+(38+(7*(nrow(oil_msts)-52)))/365.25)
+colnames(oil_msts.tr) <- colnames
+colnames(oil_msts.val) <- colnames
+colnames(oil_msts) <- colnames
 
