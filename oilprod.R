@@ -121,3 +121,17 @@ colnames(oil_msts.tr) <- colnames
 colnames(oil_msts.val) <- colnames
 colnames(oil_msts) <- colnames
 
+#tbats using msts
+fit_tbats.msts <- tbats(oil_msts.tr[, "barrels"], seasonal.periods=c(wkly, mthly))
+fc_tbats.msts <- forecast(fit_tbats.msts, h=52)
+autoplot(fc_tbats.msts)
+
+#Try to use covariates with msts
+fit_arima.msts <- auto.arima(oil_msts.tr[, "barrels"], xreg=oil_msts.tr[, c(2,3,4)])
+fc_arima.msts <- forecast(fit_arima.msts, xreg=oil_msts.val[, c(2,3,4)], h=52)
+autoplot(fc_arima.msts)
+
+
+checkresiduals(fit_seasons2)
+Box.test(fit_seasons2$residuals)
+
