@@ -40,6 +40,20 @@ autoplot(fc_naive)
 
 checkresiduals(fc_naive)
 
+#ETS Model
+fit_ets <- ets(oil.tr)
+fc_ets <- forecast(fit_ets, h=52)
+autoplot(fc_ets)
+
+checkresiduals(fit_ets)
+
+#STLF Model
+fit_stlf <- stlf(oil.tr)
+fc_stlf <- forecast(fit_stlf, h=52)
+autoplot(fc_stlf)
+
+checkresiduals(fit_stlf)
+
 #Base Arima Model
 fit_base <- auto.arima(oil.tr, stepwise=F)
 fc_base <- forecast(fit_base, h = 52)
@@ -59,8 +73,8 @@ for(i in 1:25)
 }
 bestfit
 bestfit$k
-fc0 <- forecast(bestfit$fit, xreg=fourier(oil.tr, K=12, h=52))
-autoplot(fc0, h=52)
+fc_freg <- forecast(bestfit$fit, xreg=fourier(oil.tr, K=12, h=52))
+autoplot(fc_freg, h=52)
 
 checkresiduals(bestfit$fit)
 
@@ -82,11 +96,11 @@ for(i in 1:3) {
 }
 bestfit1
 
-fc1 <- forecast(bestfit1$fit, 
+fc_fper <- forecast(bestfit1$fit, 
                        xreg=cbind(
                          fourier(ts(oil.tr, frequency=6.944444), K=bestfit1$i, h=length(oil.val)),
                          fourier(ts(oil.tr, frequency=75), K=bestfit1$j, h=length(oil.val))))
-autoplot(fc1, h=52)
+autoplot(fc_fper, h=52)
 
 checkresiduals(bestfit1$fit)
 
@@ -95,7 +109,7 @@ checkresiduals(bestfit1$fit)
 # We can check if a seasons regressor will make forecast better
 covariates <- c("winter", "spring", "summer")
 fit_seasons <- auto.arima(oil_xregs.tr[,"barrels"], xreg = oil_xregs.tr[, covariates])
-fc_seasons <- forecast(fit_seasons, xreg = oil_xregs.val[, covariates])
+fc_seasons <- forecast(fit_seasons, xreg = oil_xregs.val[, covariates], h=52)
 autoplot(fc_seasons, h=52)
 
 checkresiduals(fit_seasons)
@@ -137,14 +151,14 @@ colnames(oil_msts) <- colnames
 #tbats using msts
 fit_tbats.msts <- tbats(oil_msts.tr[, "barrels"], seasonal.periods=c(wkly, mthly))
 fc_tbats.msts <- forecast(fit_tbats.msts, h=52)
-autoplot(fc_tbats.msts)
+autoplot(fc_tbats.msts, h=52)
 
 checkresiduals(fit_tbats.msts)
 
 #Try to use covariates with msts
 fit_arima.msts <- auto.arima(oil_msts.tr[, "barrels"], xreg=oil_msts.tr[, c(2,3,4)])
 fc_arima.msts <- forecast(fit_arima.msts, xreg=oil_msts.val[, c(2,3,4)], h=52)
-autoplot(fc_arima.msts)
+autoplot(fc_arima.msts, h=52)
 
 
 checkresiduals(fit_arima.msts)
@@ -184,4 +198,62 @@ fit_elm.xreg <- elm(oil_xregs.tr[, "barrels"], xreg=oil_xregs.tr[, c(2,3,4)])
 fc_elm.xreg <- forecast(fit_elm.xreg, xreg = oil_xregs[, c(2,3,4)], PI=T, h=52)
 autoplot(fc_elm.xreg)
 
-#Compare Models and Combine Models
+#Combine Models
+comb_msts <- (fc_arima.msts[["mean"]] + fc_tbats.msts[["mean"]])/2
+autoplot(oil) + autolayer(comb_msts)
+comb_fourier <- (fc_comb[["mean"]] + fc_freg[["mean"]] +
+                   fc_fper[["mean"]])/3
+autoplot(oil) + autolayer(comb_fourier)
+comb_season <- (fc_seasons[["mean"]] + fc_freg[["mean"]] +
+                  fc_elm.xreg[["mean"]] + fc_nn.xregs[["mean"]] +
+                  fc_comb[["mean"]] + fc_arima.msts[["mean"]])/6
+autoplot(oil) + autolayer(comb_season)
+comb_nn <- (fc_nn[["mean"]] + fc_nn.xregs[["mean"]] +
+              fc_elm[["mean"]] + fc_elm.xreg[["mean"]])/4
+autoplot(oil) + autolayer(comb_nn)
+comb_simp <- (fc_ets[["mean"]] + fc_stlf[["mean"]] + fc_base[["mean"]])/3
+autoplot(oil) + autolayer(comb_simp)
+
+#Compare Models
+NAIVE_ac <- accuracy(fc_naive, oil)
+ETS_ac <- accuracy(fc_ets, oil)
+STLF_ac <- accuracy(fc_stlf, oil)
+ARIMA.base_ac <- accuracy(fc_base, oil)
+ARIMA.freg_ac <- accuracy(fc_freg, oil)
+ARIMA.fper_ac <- accuracy(fc_fper, oil)
+ARIMA.sns_ac <- accuracy(fc_seasons, oil)
+ARIMA.comb_ac <- accuracy(fc_comb, oil)
+ARIMA.msts_ac <-  accuracy(fc_arima.msts, oil)
+TBATS_ac <- accuracy(fc_tbats.msts, oil)
+NNETAR_ac <- accuracy(fc_nn, oil)
+NNETAR.sns_ac <- accuracy(fc_nn.xregs, oil)
+ELM_ac <- accuracy(fc_elm, oil)
+ELM.sn_ac <- accuracy(fc_elm.xreg, oil)
+COMB.fourier_ac <- accuracy(comb_fourier, oil)
+COMB.msts_ac <- accuracy(comb_msts, oil)
+COMB.nn_ac <- accuracy(comb_nn, oil)
+COMB.season_ac <- accuracy(comb_season, oil)
+COMB.simp_ac <- accuracy(comb_simp, oil)
+
+sort(c(NAIVE_ac = accuracy(fc_naive, oil)["Test set","RMSE"],
+  ETS_ac = accuracy(fc_ets, oil)["Test set","RMSE"],
+  STLF_ac = accuracy(fc_stlf, oil)["Test set","RMSE"],
+  ARIMA.base_ac = accuracy(fc_base, oil)["Test set","RMSE"],
+  ARIMA.freg_ac = accuracy(fc_freg, oil)["Test set","RMSE"],
+  ARIMA.fper_ac = accuracy(fc_fper, oil)["Test set","RMSE"],
+  ARIMA.sns_ac = accuracy(fc_seasons, oil)["Test set","RMSE"],
+  ARIMA.comb_ac = accuracy(fc_comb, oil)["Test set","RMSE"],
+  ARIMA.msts_ac =  accuracy(fc_arima.msts, oil)["Test set","RMSE"],
+  TBATS_ac = accuracy(fc_tbats.msts, oil)["Test set","RMSE"],
+  NNETAR_ac = accuracy(fc_nn, oil)["Test set","RMSE"],
+  NNETAR.sns_ac = accuracy(fc_nn.xregs, oil)["Test set","RMSE"],
+  ELM_ac = accuracy(fc_elm, oil)["Test set","RMSE"],
+  ELM.sn_ac = accuracy(fc_elm.xreg, oil)["Test set","RMSE"],
+  COMB.fourier_ac = accuracy(comb_fourier, oil)["Test set","RMSE"],
+  COMB.msts_ac = accuracy(comb_msts, oil)["Test set","RMSE"],
+  COMB.nn_ac = accuracy(comb_nn, oil)["Test set","RMSE"],
+  COMB.season_ac = accuracy(comb_season, oil)["Test set","RMSE"],
+  COMB.simp_ac = accuracy(comb_simp, oil)["Test set","RMSE"]))
+
+#winner!
+autoplot(oil.tr) + autolayer(comb_season)
