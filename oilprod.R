@@ -38,9 +38,14 @@ colnames(oil_xregs) <- colnames
 fc_naive <- naive(oil.tr, h = 52)
 autoplot(fc_naive)
 
+checkresiduals(fc_naive)
+
 #Base Arima Model
-fc_base <- forecast(auto.arima(oil.tr, seasonal = F), h = 52)
+fit_base <- auto.arima(oil.tr, stepwise=F)
+fc_base <- forecast(fit_base, h = 52)
 autoplot(fc_base)
+
+checkresiduals(fc_base)
 
 #Using period set in ts, find # fourier regressors to use to minimize AIC
 bestfit <- list(aicc=Inf)
@@ -52,9 +57,12 @@ for(i in 1:25)
     bestfit <- list(aicc=fit$aicc, k=i, fit=fit)
   else break;
 }
+bestfit
 bestfit$k
 fc0 <- forecast(bestfit$fit, xreg=fourier(oil.tr, K=12, h=52))
 autoplot(fc0, h=52)
+
+checkresiduals(bestfit$fit)
 
 #Try finding potential multi-seasonality. Use periodogram to find
 #frequencies wih the highest spectral power densities
@@ -80,6 +88,8 @@ fc1 <- forecast(bestfit1$fit,
                          fourier(ts(oil.tr, frequency=75), K=bestfit1$j, h=length(oil.val))))
 autoplot(fc1, h=52)
 
+checkresiduals(bestfit1$fit)
+
 #Not good at all
 
 # We can check if a seasons regressor will make forecast better
@@ -88,7 +98,7 @@ fit_seasons <- auto.arima(oil_xregs.tr[,"barrels"], xreg = oil_xregs.tr[, covari
 fc_seasons <- forecast(fit_seasons, xreg = oil_xregs.val[, covariates])
 autoplot(fc_seasons, h=52)
 
-
+checkresiduals(fit_seasons)
 
 
 #Can we do fourier with other external regressors?
@@ -105,10 +115,12 @@ for(i in 1:25)
     bestfit2 <- list(aicc=fit$aicc, k=i, fit=fit)
   else break;
 }
+bestfit2
 bestfit2$k
 fc_comb <- forecast(bestfit2$fit, xreg=cbind(fourier(oil_xregs.tr, K=8, h=52), oil_xregs.val[, covariates]))
 autoplot(fc_comb, h=52)
 
+checkresiduals(bestfit2$fit)
 
 #Multiseasonal dataset
 wkly <- 365.25 / 7
@@ -127,16 +139,15 @@ fit_tbats.msts <- tbats(oil_msts.tr[, "barrels"], seasonal.periods=c(wkly, mthly
 fc_tbats.msts <- forecast(fit_tbats.msts, h=52)
 autoplot(fc_tbats.msts)
 
+checkresiduals(fit_tbats.msts)
+
 #Try to use covariates with msts
 fit_arima.msts <- auto.arima(oil_msts.tr[, "barrels"], xreg=oil_msts.tr[, c(2,3,4)])
 fc_arima.msts <- forecast(fit_arima.msts, xreg=oil_msts.val[, c(2,3,4)], h=52)
 autoplot(fc_arima.msts)
 
 
-checkresiduals(fit_seasons2)
-checkresiduals(fc_nn$residuals)
-Box.test(fit_seasons2$residuals)
-
+checkresiduals(fit_arima.msts)
 
 #Maybe a neural network will be nice
   #no xregs
@@ -152,6 +163,7 @@ autoplot(window(oil_xregs.tr[, "barrels"], start=1991+(38+(7*(nrow(oil_xregs.tr)
 
 fc_nn <- forecast(fit_nn, PI=T, h=52)
 autoplot(fc_nn)
+checkresiduals(fit_nn$residuals)
 Box.test(fit_nn$residuals)
 
   #xregs
@@ -159,14 +171,15 @@ fit_nn.xregs <- nnetar(oil_xregs.tr[, "barrels"], xreg = oil_xregs.tr[, c(2,3,4)
 fc_nn.xregs <- forecast(fit_nn.xregs, xreg = oil_xregs.val[, c(2,3,4)], PI=T, h=52)
 autoplot(fc_nn.xregs)
 
-checkresiduals(fc_nn.xregs$residuals)
+checkresiduals(fit_nn.xregs$residuals)
+Box.test(fit_nn.xregs$residuals)
 
 # "Extreme learning machines"
 fit_elm <- elm(oil_xregs.tr[, "barrels"], type="lasso")
 fc_elm <- forecast(fit_elm, PI=T, h=52)
 autoplot(fc_elm)
 
-
+# ELM w/ xreg
 fit_elm.xreg <- elm(oil_xregs.tr[, "barrels"], xreg=oil_xregs.tr[, c(2,3,4)])
 fc_elm.xreg <- forecast(fit_elm.xreg, xreg = oil_xregs[, c(2,3,4)], PI=T, h=52)
 autoplot(fc_elm.xreg)
