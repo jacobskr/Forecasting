@@ -8,6 +8,7 @@ require(tidyverse)
 require(dplyr)
 require(nnfor)
 
+#https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=wgfupus2&f=W
 
 dta <- read.csv("US_OIL.csv")
 oil <- dta[,2]
@@ -80,14 +81,14 @@ checkresiduals(bestfit$fit)
 
 #Try finding potential multi-seasonality. Use periodogram to find
 #frequencies wih the highest spectral power densities
-periodogram(oil.val)
+periodogram(oil.tr)
 data.table(period=1/p$freq, spec=p$spec)[order(-spec)][1:5]
 
 bestfit1 <- list(aicc=Inf)
-for(i in 1:3) {
-  for (j in 1:3){
-    z1 <- fourier(ts(oil.tr, frequency=6.944444), K=i)
-    z2 <- fourier(ts(oil.tr, frequency=75), K=j)
+for(i in 1:3) { 
+  for (j in 1:3){ #i and j need to be < freq/2
+    z1 <- fourier(ts(oil.tr, frequency=7.058824), K=i)
+    z2 <- fourier(ts(oil.tr, frequency=120), K=j)
     fit <- auto.arima(oil.tr, xreg=cbind(z1, z2), seasonal=F, stepwise = F)
     if(fit$aicc < bestfit1$aicc) {
       bestfit1 <- list(aicc=fit$aicc, i=i, j=j, fit=fit)
@@ -98,8 +99,8 @@ bestfit1
 
 fc_fper <- forecast(bestfit1$fit, 
                        xreg=cbind(
-                         fourier(ts(oil.tr, frequency=6.944444), K=bestfit1$i, h=length(oil.val)),
-                         fourier(ts(oil.tr, frequency=75), K=bestfit1$j, h=length(oil.val))))
+                         fourier(ts(oil.tr, frequency=7.058824), K=bestfit1$i, h=length(oil.val)),
+                         fourier(ts(oil.tr, frequency=120), K=bestfit1$j, h=length(oil.val))))
 autoplot(fc_fper, h=52)
 
 checkresiduals(bestfit1$fit)
@@ -206,7 +207,7 @@ comb_fourier <- (fc_comb[["mean"]] + fc_freg[["mean"]] +
 autoplot(oil) + autolayer(comb_fourier)
 comb_season <- (fc_seasons[["mean"]] + fc_freg[["mean"]] +
                   fc_elm.xreg[["mean"]] + fc_nn.xregs[["mean"]] +
-                  fc_comb[["mean"]] + fc_arima.msts[["mean"]])/6
+                  fc_comb[["mean"]])/5
 autoplot(oil) + autolayer(comb_season)
 comb_nn <- (fc_nn[["mean"]] + fc_nn.xregs[["mean"]] +
               fc_elm[["mean"]] + fc_elm.xreg[["mean"]])/4
@@ -257,3 +258,7 @@ sort(c(NAIVE_ac = accuracy(fc_naive, oil)["Test set","RMSE"],
 
 #winner!
 autoplot(oil.tr) + autolayer(comb_season)
+
+
+
+         
