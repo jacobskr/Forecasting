@@ -294,6 +294,39 @@ sort(c(NAIVE_ac = accuracy(fc_naive, oil_freq.val)["Test set","RMSE"],
 #winner!
 autoplot(oil_freq.tr) + autolayer(fc_tbats.msts) + autolayer(oil_freq.val)
 
+#Forecast out - prediction interval far too wide though
+fit_for.tbats <- tbats(oil_msts[, "barrels"], seasonal.periods=c(wkly, mthly), model=fit_tbats.msts)
+fc_for.tbats <- forecast(fit_for.tbats, h=52)
+autoplot(fc_for.tbats, h=52)
 
 
-         
+#Try the combined season forecast instead - create prediction intervals
+autoplot(oil_freq.tr) + autolayer(comb_season, h=52)
+
+tst0 <- cbind(fc_seasons$lower, fc_seasons$upper) * .25
+tst1 <- cbind(fc_comb$lower, fc_comb$upper) * .25
+tst2 <- cbind(fc_freg$lower, fc_freg$upper) * .25
+tst3 <- cbind(fc_nn.xregs$lower, fc_nn.xregs$upper) * .25
+combined_tst <- cbind((tst0[,1]+tst1[,1]+tst2[,1]+tst3[,1]),
+                      (tst0[,2]+tst1[,2]+tst2[,2]+tst3[,2]),
+                      (tst0[,3]+tst1[,3]+tst2[,3]+tst3[,3]),
+                      (tst0[,4]+tst1[,4]+tst2[,4]+tst3[,4]))
+combin
+intnames <- c('Lo 80', 'Hi 80', 'Lo 95', 'Hi 95')
+colnames(combined_tst) <- intnames
+autoplot(oil_freq.tr) + autoplot(combined_tst[,'Point Forecast'], PI=T)
+#Something to try... weighted predictions of multiple models
+# Need to use the model weights to forcast out... multiply each model's
+# forecast for next 52 by the weights, do same with prediction intervals
+require(opera)
+comb_seasons.MLpol = cbind(fc_seasons[["mean"]], fc_freg[["mean"]], 
+                              fc_nn.xregs[["mean"]], fc_comb[["mean"]])
+MLpol0 <- mixture(model = 'MLpol', loss.type = 'square')
+weights <- predict(MLpol0, comb_seasons.MLpol, oil_freq.val, type = 'weights')
+resp <- predict(MLpol0, comb_seasons.MLpol, oil_freq.val, type = 'response')
+model <- predict(MLpol0, comb_seasons.MLpol, oil_freq.val, type = 'model')
+fc_op_sns <- ts(predict(MLpol0, comb_seasons.MLpol, oil_freq.val, type = 'response'),
+                start = end(oil_freq.tr), frequency = 365.25/7)
+
+autoplot(oil_freq.tr) + autolayer(fc_op_sns) + autolayer(oil_freq.val)
+accuracy(fc_op_sns, oil_freq.val)
