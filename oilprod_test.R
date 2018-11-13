@@ -7,28 +7,32 @@ require(ggplot2)
 require(tidyverse)
 require(dplyr)
 require(nnfor)
-require(devtools)
-
-#install_version("forecast", version = "8.2", repos = "http://cran.us.r-project.org")
+require(ELMR)
 
 #https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=wgfupus2&f=W
-
 dta <- read.csv("US_OIL.csv")
-oil <- dta[,2]
-oil <- ts(oil, freq=365.25/7, start=1991+38/365.25)
-plot(oil)
-oil.tr <- ts(oil[(length(oil)-260):(length(oil)-52)],
-             freq=365.25/7, start=1991+(38+(7*(length(oil)-260)))/365.25)
-len <- length(oil.tr)
-oil.val <- ts(oil[(length(oil)-51):length(oil)],freq=365.25/7, 
-              start=1991+(38+(7*(length(oil)-51)))/365.25)
-autoplot(oil.tr) + autolayer(oil.val)
+dta2 <- tail(dta, 260)[,2]
 
 #seasons data
 seasons <- read.csv("seasons.csv")
+seasons <- tail(seasons, 260)
 seasons <- seasons[,c(2,3,4)]
-seasons.tr <- seasons[1:(length(oil)-52),]
-seasons.val <- seasons[(length(oil)-51):length(oil),]
+seasons.tr <- seasons[1:208,]
+seasons.val <- seasons[209:260,]
+
+# True frequency training/validation sets
+oil_freq <- ts(dta2, frequency = 365.25/7, start=2014-(46/365.25))
+oil_freq.tr <- ts(oil_freq[1:208], freq=365.25/7, start=2014-(46/365.25))
+oil_freq.val <- ts(oil_freq[(length(oil_freq)-51):length(oil_freq)],
+                   freq=365.25/7, 
+                   start=1991+(38+(7*(nrow(dta)-51)))/365.25)
+autoplot(oil_freq.tr) + autolayer(oil_freq.val)
+
+#Rounded frequency training/validation sets
+oil_round <- ts(dta2, freq=52, start = c(2013, 46))
+oil_round.tr <- ts(oil_freq[1:208], freq=52, start=c(2013, 46))
+oil_round.val <- ts(oil_freq[209:260], freq=52, start=c(2017, 46))
+autoplot(oil_freq.tr) + autolayer(oil_freq.val)
 
 #oil ts with seasons
 oil_xregs <- data.frame(dta[,2])
@@ -43,28 +47,28 @@ colnames(oil_xregs.val) <- colnames
 colnames(oil_xregs) <- colnames
 
 #naive model
-fc_naive <- naive(oil.tr, h = 52)
-autoplot(fc_naive) + autolayer(oil.val)
+fc_naive <- naive(oil_freq.tr, h = 52)
+autoplot(fc_naive) + autolayer(oil_freq.val)
 
 checkresiduals(fc_naive)
 
 #ETS Model
-fit_ets <- ets(oil.tr)
+fit_ets <- ets(oil_freq.tr)
 fc_ets <- forecast(fit_ets, h=52)
-autoplot(fc_ets) + autolayer(oil.val)
+autoplot(fc_ets) + autolayer(oil_freq.val)
 
 checkresiduals(fit_ets)
 
 #STLF Model
-fit_stlf <- stlf(oil.tr)
+fit_stlf <- stlf(oil_freq.tr)
 fc_stlf <- forecast(fit_stlf, h=52)
 autoplot(fc_stlf)
-autoplot(fc_stlf) + autolayer(oil.val)
+autoplot(fc_stlf) + autolayer(oil_freq.val)
 
 checkresiduals(fit_stlf)
 
 #Base Arima Model
-fit_base <- auto.arima(oil.tr, stepwise=F)
+fit_base <- auto.arima(oil_round.tr, stepwise=T)
 fc_base <- forecast(fit_base, h = 52)
 autoplot(fc_base)
 
@@ -74,34 +78,35 @@ checkresiduals(fc_base)
 bestfit <- list(aicc=Inf)
 for(i in 1:25)
 {
-  z <- fourier(oil.tr, K=i)
-  fit <- auto.arima(oil.tr, xreg=fourier(oil.tr, K=i), seasonal=FALSE)
+  z <- fourier(oil_freq.tr, K=i)
+  fit <- auto.arima(oil_freq.tr, xreg=fourier(oil.tr, K=i), seasonal=FALSE)
   if(fit$aicc < bestfit$aicc)
     bestfit <- list(aicc=fit$aicc, k=i, fit=fit)
   else break;
 }
 bestfit
 bestfit$k
-fc_freg <- forecast(bestfit$fit, xreg=fourier(oil.tr, K=12, h=52))
+fc_freg <- forecast(bestfit$fit, xreg=fourier(oil_freq.tr, K=6, h=52))
 autoplot(fc_freg, h=52)
+autoplot(fc_freg) + autolayer(oil_freq.val)
 
 checkresiduals(bestfit$fit)
 
 #Try finding potential multi-seasonality. Use periodogram to find
 #frequencies wih the highest spectral power densities
-p <- periodogram(oil.tr1)
-data.table(period=1/p$freq, spec=p$spec)[order(-spec)][1:5]
+pd <- periodogram(oil_freq.tr)
+data.table(period=1/pd$freq, spec=pd$spec)[order(-spec)][1:5]
 
 bestfit1 <- list(aicc=Inf)
-for(i in 0:5) { 
-  for (j in 0:5){ #i and j need to be < freq/2
-    for (p in 0:5){
+for(i in 0:25) { 
+  for (j in 0:15){ 
+    for (p in 0:15){ #i,j, and p need to be < freq/2
       try({
-      z1 <- fourier(ts(oil.tr1, frequency=54), K=i)
-      z2 <- fourier(ts(oil.tr1, frequency=72), K=j)
-      z3 <- fourier(ts(oil.tr1, frequency=30.85714286), K=p)
-      fit <- auto.arima(oil.tr1, xreg=cbind(z1, z2, z3), seasonal=F, stepwise = T)
-      print(cbind(i,j))
+      z1 <- fourier(ts(oil_freq.tr, frequency=54), K=i)
+      z2 <- fourier(ts(oil_freq.tr, frequency=72), K=j)
+      z3 <- fourier(ts(oil_freq.tr, frequency=30.85714286), K=p)
+      fit <- auto.arima(oil_freq.tr, xreg=cbind(z1, z2, z3), seasonal=F, stepwise = T)
+      print(cbind(i,j,p))
       })
       if(fit$aicc < bestfit1$aicc) {
         bestfit1 <- list(aicc=fit$aicc, i=i, j=j, p=p, fit=fit)
@@ -110,23 +115,27 @@ for(i in 0:5) {
   }
 }
 bestfit1
-
+#(3,1,3) was the best
 fc_fper <- forecast(bestfit1$fit, 
                        xreg=cbind(
-                         fourier(ts(oil.tr1, frequency=54), K=bestfit1$i, h=length(oil.val)),
-                         fourier(ts(oil.tr1, frequency=72), K=bestfit1$j, h=length(oil.val)),
-                         fourier(ts(oil.tr1, frequency=30.85714286), K=bestfit1$p, h=length(oil.val))))
-autoplot(fc_fper, h=52) + autolayer(oil.val)
+                         fourier(ts(oil_freq.tr, frequency=54),
+                                 K=bestfit1$i, h=length(oil_freq.val)),
+                         fourier(ts(oil_freq.tr, frequency=72), K=bestfit1$j,
+                                 h=length(oil_freq.val)),
+                         fourier(ts(oil_freq.tr, frequency=30.85714286),
+                                 K=bestfit1$p, h=length(oil_freq.val))))
+autoplot(fc_fper, h=52)
+autoplot(fc_fper, h=52) + autolayer(oil_freq.val)
 
 checkresiduals(bestfit1$fit)
 
-#Not good at all
 
 # We can check if a seasons regressor will make forecast better
 covariates <- c("winter", "spring", "summer")
-fit_seasons <- auto.arima(oil_xregs.tr[,"barrels"], xreg = oil_xregs.tr[, covariates])
-fc_seasons <- forecast(fit_seasons, xreg = oil_xregs.val[, covariates], h=52)
+fit_seasons <- auto.arima(oil_freq.tr, xreg = seasons.tr)
+fc_seasons <- forecast(fit_seasons, xreg = seasons.val, h=52)
 autoplot(fc_seasons, h=52)
+autoplot(fc_seasons, h=52) + autolayer(oil_round.val)
 
 checkresiduals(fit_seasons)
 
@@ -135,31 +144,39 @@ checkresiduals(fit_seasons)
 bestfit2 <- list(aicc=Inf)
 for(i in 1:25)
 {
-  z <- data.frame(fourier(oil_xregs.tr[,"barrels"], K=i))
-  z['winter'] <- seasons.tr[,'winter']
-  z['spring'] <- seasons.tr[,'spring']
-  z['summer'] <- seasons.tr[,'summer']
-  z <- ts(z, freq=365.25/7, start=1991+38/365.25)
-  fit <- auto.arima(oil_xregs.tr[,"barrels"], xreg=z, seasonal=FALSE)
+  #z <- data.frame(fourier(oil_xregs.tr[,"barrels"], K=i))
+  #z['winter'] <- seasons.tr[,'winter']
+  #z['spring'] <- seasons.tr[,'spring']
+  #z['summer'] <- seasons.tr[,'summer']
+  #z <- ts(z, freq=365.25/7, start=1991+38/365.25)
+  #fit <- auto.arima(oil_xregs.tr[,"barrels"], xreg=z, seasonal=FALSE)
+  x1 <- fourier(oil_freq.tr, K=i)
+  x2 <- seasons.tr
+  fit <- auto.arima(oil_freq.tr, xreg=cbind(x1, x2), seasonal=F)
   if(fit$aicc < bestfit2$aicc)
     bestfit2 <- list(aicc=fit$aicc, k=i, fit=fit)
   else break;
 }
 bestfit2
 bestfit2$k
-fc_comb <- forecast(bestfit2$fit, xreg=cbind(fourier(oil_xregs.tr, K=8, h=52), oil_xregs.val[, covariates]))
+fc_comb <- forecast(bestfit2$fit, xreg=cbind(fourier(oil_freq.tr, K=bestfit2$k, h=52), seasons.val))
 autoplot(fc_comb, h=52)
+autoplot(fc_comb, h=52) + autolayer(oil_round.val)
 
 checkresiduals(bestfit2$fit)
 
 #Multiseasonal dataset
 wkly <- 365.25 / 7
 mthly <- wkly / 12
-oil_msts <- data.frame(dta[,2])
+oil_msts <- data.frame(dta2)
 oil_msts[,c(2,3,4)] <- seasons
-oil_msts <- msts(oil_msts, seasonal.periods=c(wkly, mthly), start=1991+38/365.25)
-oil_msts.tr <- window(oil_msts, end=1991+(38+(7*(nrow(oil_msts)-53)))/365.25)
-oil_msts.val <- window(oil_msts, start=1991+(38+(7*(nrow(oil_msts)-52)))/365.25)
+oil_msts <- msts(oil_msts, seasonal.periods=c(wkly, mthly),
+                 start=2014-(46/365.25))
+oil_msts.tr <- window(oil_msts,
+                      end=(2014-(46/365.25))+(7*(nrow(oil_msts)-53))/365.25)
+oil_msts.val <- window(oil_msts, 
+                       start=(2014-(46/365.25))+(7*(nrow(oil_msts)-52))/365.25)
+colnames <- c("barrels", "winter", "spring", "summer")
 colnames(oil_msts.tr) <- colnames
 colnames(oil_msts.val) <- colnames
 colnames(oil_msts) <- colnames
@@ -168,6 +185,7 @@ colnames(oil_msts) <- colnames
 fit_tbats.msts <- tbats(oil_msts.tr[, "barrels"], seasonal.periods=c(wkly, mthly))
 fc_tbats.msts <- forecast(fit_tbats.msts, h=52)
 autoplot(fc_tbats.msts, h=52)
+autoplot(fc_tbats.msts, h=52) + autolayer(oil_round.val)
 
 checkresiduals(fit_tbats.msts)
 
@@ -175,44 +193,47 @@ checkresiduals(fit_tbats.msts)
 fit_arima.msts <- auto.arima(oil_msts.tr[, "barrels"], xreg=oil_msts.tr[, c(2,3,4)])
 fc_arima.msts <- forecast(fit_arima.msts, xreg=oil_msts.val[, c(2,3,4)], h=52)
 autoplot(fc_arima.msts, h=52)
-
+autoplot(fc_arima.msts, h=52) + autolayer(oil_msts.val[,"barrels"])
 
 checkresiduals(fit_arima.msts)
 
 #Maybe a neural network will be nice
   #no xregs
-fit_nn <- nnetar(oil_xregs.tr[, "barrels"], lambda = 0.5)
+fit_nn <- nnetar(oil_freq.tr, lambda = 0.5)
 autoplot(forecast(fit_nn, h=52))
 
   #simulattion path for 9 possible future paths
 set.seed(2005)
-sim <- ts(matrix(0, nrow=30L, ncol=9L), frequency=365.25/7 , start = end(oil_xregs.tr)[1L]+(7/365.25))
+sim <- ts(matrix(0, nrow=30L, ncol=9L), frequency=365.25/7 ,
+          start = end(oil_freq.tr)[1L]+(7/365.25))
 for(i in seq(9))
   sim[,i] <- simulate(fit_nn, nsim=30L)
-autoplot(window(oil_xregs.tr[, "barrels"], start=1991+(38+(7*(nrow(oil_xregs.tr)-300)))/365.25)) + autolayer(sim)
+autoplot(oil_freq.tr) + autolayer(sim)
 
 fc_nn <- forecast(fit_nn, PI=T, h=52)
 autoplot(fc_nn)
+autoplot(fc_nn) + autolayer(oil_freq.val)
 checkresiduals(fit_nn$residuals)
 Box.test(fit_nn$residuals)
 
   #xregs
-fit_nn.xregs <- nnetar(oil_xregs.tr[, "barrels"], xreg = oil_xregs.tr[, c(2,3,4)], lambda = 0.5)
-fc_nn.xregs <- forecast(fit_nn.xregs, xreg = oil_xregs.val[, c(2,3,4)], PI=T, h=52)
+fit_nn.xregs <- nnetar(oil_freq.tr, xreg = seasons.tr, lambda = 0.5)
+fc_nn.xregs <- forecast(fit_nn.xregs, xreg = seasons.val, PI=T, h=52)
 autoplot(fc_nn.xregs)
+autoplot(fc_nn.xregs) + autolayer(oil_freq.val)
 
 checkresiduals(fit_nn.xregs$residuals)
 Box.test(fit_nn.xregs$residuals)
 
 # "Extreme learning machines"
-fit_elm <- elm(oil_xregs.tr[, "barrels"], type="lasso")
-fc_elm <- forecast(fit_elm, PI=T, h=52)
-autoplot(fc_elm)
+#fit_elm <- elm(oil_freq.tr, type="lasso")
+#fc_elm <- forecast(fit_elm, PI=T, h=52)
+#autoplot(fc_elm)
 
 # ELM w/ xreg
-fit_elm.xreg <- elm(oil_xregs.tr[, "barrels"], xreg=oil_xregs.tr[, c(2,3,4)])
-fc_elm.xreg <- forecast(fit_elm.xreg, xreg = oil_xregs[, c(2,3,4)], PI=T, h=52)
-autoplot(fc_elm.xreg)
+#fit_elm.xreg <- elm(oil_freq.tr, xreg=seasons.tr)
+#fc_elm.xreg <- forecast(fit_elm.xreg, xreg = seasons, PI=T, h=52)
+#autoplot(fc_elm.xreg)
 
 #Combine Models
 comb_msts <- (fc_arima.msts[["mean"]] + fc_tbats.msts[["mean"]])/2
@@ -221,58 +242,57 @@ comb_fourier <- (fc_comb[["mean"]] + fc_freg[["mean"]] +
                    fc_fper[["mean"]])/3
 autoplot(oil) + autolayer(comb_fourier)
 comb_season <- (fc_seasons[["mean"]] + fc_freg[["mean"]] +
-                  fc_elm.xreg[["mean"]] + fc_nn.xregs[["mean"]] +
-                  fc_comb[["mean"]])/5
+                  + fc_nn.xregs[["mean"]] + fc_comb[["mean"]])/4
 autoplot(oil) + autolayer(comb_season)
-comb_nn <- (fc_nn[["mean"]] + fc_nn.xregs[["mean"]] +
-              fc_elm[["mean"]] + fc_elm.xreg[["mean"]])/4
+comb_nn <- (fc_nn[["mean"]] + fc_nn.xregs[["mean"]])/2
 autoplot(oil) + autolayer(comb_nn)
-comb_simp <- (fc_ets[["mean"]] + fc_stlf[["mean"]] + fc_base[["mean"]])/3
-autoplot(oil) + autolayer(comb_simp)
+#comb_simp <- (fc_ets[["mean"]] + fc_stlf[["mean"]] + fc_base[["mean"]])/3
+#autoplot(oil) + autolayer(comb_simp)
 
 #Compare Models
-NAIVE_ac <- accuracy(fc_naive, oil.val)
-ETS_ac <- accuracy(fc_ets, oil.val)
-STLF_ac <- accuracy(fc_stlf, oil.val)
-ARIMA.base_ac <- accuracy(fc_base, oil.val)
-ARIMA.freg_ac <- accuracy(fc_freg, oil.val)
-ARIMA.fper_ac <- accuracy(fc_fper, oil.val)
-ARIMA.sns_ac <- accuracy(fc_seasons, oil.val)
-ARIMA.comb_ac <- accuracy(fc_comb, oil.val)
-ARIMA.msts_ac <-  accuracy(fc_arima.msts, oil.val)
-TBATS_ac <- accuracy(fc_tbats.msts, oil.val)
-NNETAR_ac <- accuracy(fc_nn, oil.val)
-NNETAR.sns_ac <- accuracy(fc_nn.xregs, oil.val)
-ELM_ac <- accuracy(fc_elm, oil.val)
-ELM.sn_ac <- accuracy(fc_elm.xreg, oil.val)
-COMB.fourier_ac <- accuracy(comb_fourier, oil.val)
-COMB.msts_ac <- accuracy(comb_msts, oil.val)
-COMB.nn_ac <- accuracy(comb_nn, oil.val)
-COMB.season_ac <- accuracy(comb_season, oil.val)
-COMB.simp_ac <- accuracy(comb_simp, oil.val)
+NAIVE_ac <- accuracy(fc_naive, oil_freq.val)
+ETS_ac <- accuracy(fc_ets, oil_freq.val)
+STLF_ac <- accuracy(fc_stlf, oil_freq.val)
+ARIMA.base_ac <- accuracy(fc_base, oil_freq.val)
+ARIMA.freg_ac <- accuracy(fc_freg, oil_freq.val)
+ARIMA.fper_ac <- accuracy(fc_fper, oil_freq.val)
+ARIMA.sns_ac <- accuracy(fc_seasons, oil_freq.val)
+ARIMA.comb_ac <- accuracy(fc_comb, oil_freq.val)
+ARIMA.msts_ac <-  accuracy(fc_arima.msts, oil_freq.val)
+TBATS_ac <- accuracy(fc_tbats.msts, oil_freq.val)
+NNETAR_ac <- accuracy(fc_nn, oil_freq.val)
+NNETAR.sns_ac <- accuracy(fc_nn.xregs, oil_freq.val)
+#ELM_ac <- accuracy(fc_elm, oil_freq.val)
+#ELM.sn_ac <- accuracy(fc_elm.xreg, oil_freq.val)
+COMB.fourier_ac <- accuracy(comb_fourier, oil_freq.val)
+COMB.msts_ac <- accuracy(comb_msts, oil_freq.val)
+COMB.nn_ac <- accuracy(comb_nn, oil_freq.val)
+COMB.season_ac <- accuracy(comb_season, oil_freq.val)
+#COMB.simp_ac <- accuracy(comb_simp, oil_freq.val)
 
-sort(c(NAIVE_ac = accuracy(fc_naive, oil)["Test set","RMSE"],
-  ETS_ac = accuracy(fc_ets, oil)["Test set","RMSE"],
-  STLF_ac = accuracy(fc_stlf, oil)["Test set","RMSE"],
-  ARIMA.base_ac = accuracy(fc_base, oil)["Test set","RMSE"],
-  ARIMA.freg_ac = accuracy(fc_freg, oil)["Test set","RMSE"],
-  ARIMA.fper_ac = accuracy(fc_fper, oil)["Test set","RMSE"],
-  ARIMA.sns_ac = accuracy(fc_seasons, oil)["Test set","RMSE"],
-  ARIMA.comb_ac = accuracy(fc_comb, oil)["Test set","RMSE"],
-  ARIMA.msts_ac =  accuracy(fc_arima.msts, oil)["Test set","RMSE"],
-  TBATS_ac = accuracy(fc_tbats.msts, oil)["Test set","RMSE"],
-  NNETAR_ac = accuracy(fc_nn, oil)["Test set","RMSE"],
-  NNETAR.sns_ac = accuracy(fc_nn.xregs, oil)["Test set","RMSE"],
-  ELM_ac = accuracy(fc_elm, oil)["Test set","RMSE"],
-  ELM.sn_ac = accuracy(fc_elm.xreg, oil)["Test set","RMSE"],
-  COMB.fourier_ac = accuracy(comb_fourier, oil)["Test set","RMSE"],
-  COMB.msts_ac = accuracy(comb_msts, oil)["Test set","RMSE"],
-  COMB.nn_ac = accuracy(comb_nn, oil)["Test set","RMSE"],
-  COMB.season_ac = accuracy(comb_season, oil)["Test set","RMSE"],
-  COMB.simp_ac = accuracy(comb_simp, oil)["Test set","RMSE"]))
+sort(c(NAIVE_ac = accuracy(fc_naive, oil_freq.val)["Test set","RMSE"],
+  ETS_ac = accuracy(fc_ets, oil_freq.val)["Test set","RMSE"],
+  STLF_ac = accuracy(fc_stlf, oil_freq.val)["Test set","RMSE"],
+  ARIMA.base_ac = accuracy(fc_base, oil_freq.val)["Test set","RMSE"],
+  ARIMA.freg_ac = accuracy(fc_freg, oil_freq.val)["Test set","RMSE"],
+  ARIMA.fper_ac = accuracy(fc_fper, oil_freq.val)["Test set","RMSE"],
+  ARIMA.sns_ac = accuracy(fc_seasons, oil_freq.val)["Test set","RMSE"],
+  ARIMA.comb_ac = accuracy(fc_comb, oil_freq.val)["Test set","RMSE"],
+  ARIMA.msts_ac =  accuracy(fc_arima.msts, oil_freq.val)["Test set","RMSE"],
+  TBATS_ac = accuracy(fc_tbats.msts, oil_freq.val)["Test set","RMSE"],
+  NNETAR_ac = accuracy(fc_nn, oil_freq.val)["Test set","RMSE"],
+  NNETAR.sns_ac = accuracy(fc_nn.xregs, oil_freq.val)["Test set","RMSE"],
+  #ELM_ac = accuracy(fc_elm, oil_freq.val)["Test set","RMSE"],
+  #ELM.sn_ac = accuracy(fc_elm.xreg, oil_freq.val)["Test set","RMSE"],
+  COMB.fourier_ac = accuracy(comb_fourier, oil_freq.val)["Test set","RMSE"],
+  COMB.msts_ac = accuracy(comb_msts, oil_freq.val)["Test set","RMSE"],
+  COMB.nn_ac = accuracy(comb_nn, oil_freq.val)["Test set","RMSE"],
+  COMB.season_ac = accuracy(comb_season, oil_freq.val)["Test set","RMSE"]
+  #COMB.simp_ac = accuracy(comb_simp, oil_freq.val)["Test set","RMSE"])
+))
 
 #winner!
-autoplot(oil.tr1) + autolayer(comb_season) + autolayer(oil.val)
+autoplot(oil_freq.tr) + autolayer(fc_tbats.msts) + autolayer(oil_freq.val)
 
 
 
