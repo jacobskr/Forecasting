@@ -7,7 +7,7 @@ require(ggplot2)
 require(tidyverse)
 require(dplyr)
 require(nnfor)
-require(ELMR)
+
 
 #https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=wgfupus2&f=W
 dta <- read.csv("US_OIL.csv")
@@ -35,16 +35,16 @@ oil_round.val <- ts(oil_freq[209:260], freq=52, start=c(2017, 46))
 autoplot(oil_freq.tr) + autolayer(oil_freq.val)
 
 #oil ts with seasons
-oil_xregs <- data.frame(dta[,2])
-oil_xregs[,c(2,3,4)] <- seasons
-oil_xregs <- ts(oil_xregs, freq=365.25/7, start=1991+38/365.25)
-oil_xregs.tr <- window(oil_xregs, start=1991+(38+(7*(nrow(oil_xregs)-260)))/365.25,
-                       end=1991+(38+(7*(nrow(oil_xregs)-52)))/365.25)
-oil_xregs.val <- window(oil_xregs, start=1991+(38+(7*(nrow(oil_xregs)-51)))/365.25)
-colnames <- c("barrels", "winter", "spring", "summer")
-colnames(oil_xregs.tr) <- colnames
-colnames(oil_xregs.val) <- colnames
-colnames(oil_xregs) <- colnames
+#oil_xregs <- data.frame(dta[,2])
+#oil_xregs[,c(2,3,4)] <- seasons
+#oil_xregs <- ts(oil_xregs, freq=365.25/7, start=1991+38/365.25)
+#oil_xregs.tr <- window(oil_xregs, start=1991+(38+(7*(nrow(oil_xregs)-260)))/365.25,
+#                       end=1991+(38+(7*(nrow(oil_xregs)-52)))/365.25)
+#oil_xregs.val <- window(oil_xregs, start=1991+(38+(7*(nrow(oil_xregs)-51)))/365.25)
+#colnames <- c("barrels", "winter", "spring", "summer")
+#colnames(oil_xregs.tr) <- colnames
+#colnames(oil_xregs.val) <- colnames
+#colnames(oil_xregs) <- colnames
 
 #naive model
 fc_naive <- naive(oil_freq.tr, h = 52)
@@ -71,6 +71,7 @@ checkresiduals(fit_stlf)
 fit_base <- auto.arima(oil_round.tr, stepwise=T)
 fc_base <- forecast(fit_base, h = 52)
 autoplot(fc_base)
+autoplot(fc_base) + autolayer(oil_freq.val)
 
 checkresiduals(fc_base)
 
@@ -79,14 +80,12 @@ bestfit <- list(aicc=Inf)
 for(i in 1:25)
 {
   z <- fourier(oil_freq.tr, K=i)
-  fit <- auto.arima(oil_freq.tr, xreg=fourier(oil.tr, K=i), seasonal=FALSE)
+  fit <- auto.arima(oil_freq.tr, xreg=fourier(oil_freq.tr, K=i), seasonal=FALSE)
   if(fit$aicc < bestfit$aicc)
     bestfit <- list(aicc=fit$aicc, k=i, fit=fit)
   else break;
 }
-bestfit
-bestfit$k
-fc_freg <- forecast(bestfit$fit, xreg=fourier(oil_freq.tr, K=6, h=52))
+fc_freg <- forecast(bestfit$fit, xreg=fourier(oil_freq.tr, K=bestfit$k, h=52))
 autoplot(fc_freg, h=52)
 autoplot(fc_freg) + autolayer(oil_freq.val)
 
@@ -300,8 +299,8 @@ fc_for.tbats <- forecast(fit_for.tbats, h=52)
 autoplot(fc_for.tbats, h=52)
 
 
-#Try the combined season forecast instead - create prediction intervals
-autoplot(oil_freq.tr) + autolayer(comb_season, h=52)
+#Try the combined season forecast instead - create prediction intervals - a bit better
+autoplot(oil_freq.tr) + autolayer(comb_season$mean)
 
 tst0 <- cbind(fc_seasons$lower, fc_seasons$upper) * .25
 tst1 <- cbind(fc_comb$lower, fc_comb$upper) * .25
@@ -311,10 +310,14 @@ combined_tst <- cbind((tst0[,1]+tst1[,1]+tst2[,1]+tst3[,1]),
                       (tst0[,2]+tst1[,2]+tst2[,2]+tst3[,2]),
                       (tst0[,3]+tst1[,3]+tst2[,3]+tst3[,3]),
                       (tst0[,4]+tst1[,4]+tst2[,4]+tst3[,4]))
-combin
-intnames <- c('Lo 80', 'Hi 80', 'Lo 95', 'Hi 95')
-colnames(combined_tst) <- intnames
-autoplot(oil_freq.tr) + autoplot(combined_tst[,'Point Forecast'], PI=T)
+comb_season$mean <- comb_season
+comb_season$interval <- combined_tst
+colnames(comb_season$interval) <- c('Lo 80', 'Lo 95', 'Hi 80', 'Hi 95')
+
+autoplot(oil_freq.tr) + autolayer(comb_season$mean) +
+  geom_ribbon(data = comb_season$mean, aes(ymin = comb_season$interval[,2], ymax = comb_season$interval[,4]), fill = 'blue', alpha = .2) +
+  geom_ribbon(data = comb_season$mean, aes(ymin = comb_season$interval[,1], ymax = comb_season$interval[,3]), fill= 'red', alpha = .2)
+
 #Something to try... weighted predictions of multiple models
 # Need to use the model weights to forcast out... multiply each model's
 # forecast for next 52 by the weights, do same with prediction intervals
