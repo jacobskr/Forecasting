@@ -2,21 +2,71 @@ U.S. Gasoline Production
 ========================================================
 author: Team VP
 date: November 30th, 2018
-autosize: true
+autosize: FALSE
+
+```{r, echo=FALSE, }
+require(knitr)
+require(kableExtra)
+require(data.table)
+require(TSA)
+require(forecast)
+require(xts)
+require(fpp2)
+require(ggplot2)
+require(tidyverse)
+require(dplyr)
+dta <- read.csv("C:/Users/ejvpaba/Desktop/Python/Forecasting/US_OIL.csv")
+dta2 <- tail(dta, 260)[,2]
+
+#seasons data
+seasons <- read.csv("C:/Users/ejvpaba/Desktop/Python/Forecasting/seasons.csv")
+seasons <- tail(seasons, 260)
+seasons <- seasons[,c(2,3,4)]
+seasons.tr <- seasons[1:208,]
+seasons.val <- seasons[209:260,]
+
+# True frequency training/validation sets
+oil_freq <- ts(dta2, frequency = 365.25/7, start=2014-(46/365.25))
+oil_freq.tr <- ts(oil_freq[1:208], freq=365.25/7, start=2014-(46/365.25))
+oil_freq.val <- ts(oil_freq[(length(oil_freq)-51):length(oil_freq)],
+                   freq=365.25/7, 
+                   start=end(oil_freq.tr)+(7/365.25))
 
 
+#Rounded frequency training/validation sets
+oil_round <- ts(dta2, freq=52, start = c(2013, 46))
+oil_round.tr <- ts(oil_freq[1:208], freq=52, start=c(2013, 46))
+oil_round.val <- ts(oil_freq[209:260], freq=52, start=c(2017, 46))
+
+
+```
 The Data
 ========================================================
 
+<style>
+  .col2 {
+    columns: 2 200px;         /* number of columns and width in pixels*/
+    -webkit-columns: 2 200px; /* chrome, safari */
+    -moz-columns: 2 200px;    /* firefox */
+  }
+  .col3 {
+    columns: 3 100px;
+    -webkit-columns: 3 100px;
+    -moz-columns: 3 100px;
+  }
+</style>
 U.S. Energy Information Administration  
 Weekly U.S Product Supplied of Finished Motor Gasoline  
-<https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=pet&s=wgfupus2&f=w>
 
 - Time Series - Weekly data points from 2/8/1991 to current
-
 - Dependent Variable - Average barrels per day (thousands)
+- Created dummy variables for each season to use as exogenous variables
 
-- Created exogenous variable dataset with dummy variables for each season
+```{r, echo=FALSE, fig.align='center', fig.width=20}
+autoplot(ts(dta$barrels, start=1991 +(38/7)/365.25, frequency = 365.25/7), 
+          ylab = "Barrels (Thousands)", main = "U.S. Oil Production")
+```
+
 
 Data Subsets
 ========================================================
@@ -29,27 +79,26 @@ For forecasting purposes, we will be looking at the last 260 weeks (~5 years)
 
 Data Variations and Frequencies
 ========================================================
-Created three variations of data:  
-______
 
-oil_round:  
-frequency = 52  
-start oil_round.tr = (2013, 46)  
-end oil_round.val = (2018, 45)  
+ Created three variations of data:  
 
-*******
-oil_freq:   
-frequency = $365.25 / 7$  
-start oil_round.tr =   
+
+<div class="col3">
+oil_round:<br/>
+frequency = 52<br/>
+start oil_round.tr = (2013, 46)<br/>
+end oil_round.val = (2018, 45)<br/>
+
+oil_freq:<br/>
+frequency = 'r wkly' 365.25/7<br/>  
+start oil_round.tr =  
 end oil_round.val =   
 
-*******
-oil_freq:   
-frequency = $365.25 / 7$, $(365.25/7)/12$ 
+oil_freq:  
+frequency = 365.25/7, 12, 4 
 start oil_round.tr =   
 end oil_round.val =  
-
-
+</div>
 
 Slide With Code
 ========================================================
