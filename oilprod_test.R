@@ -8,7 +8,7 @@ require(tidyverse)
 require(dplyr)
 require(nnfor)
 require(opera)
-
+dta
 #https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=wgfupus2&f=W
 dta <- read.csv("US_OIL.csv")
 dta2 <- tail(dta, 260)[,2]
@@ -167,15 +167,16 @@ checkresiduals(bestfit2$fit)
 
 #Multiseasonal dataset
 wkly <- 365.25 / 7
-mthly <- wkly / 12
+mthly <- 12
+qtrly <- 4
 oil_msts <- data.frame(dta2)
 oil_msts[,c(2,3,4)] <- seasons
-oil_msts <- msts(oil_msts, seasonal.periods=c(wkly, mthly),
+oil_msts <- msts(oil_msts, seasonal.periods=c(wkly, mthly, qtrly),
                  ts.frequency = wkly, start=2014-(46/365.25))
-oil_msts.tr <-msts(oil_msts[1:208,], seasonal.periods=c(wkly, mthly), 
+oil_msts.tr <-msts(oil_msts[1:208,], seasonal.periods=c(wkly, mthly, qtrly), 
                    ts.frequency = wkly, start=2014-(46/365.25))
 oil_msts.val <- msts(oil_msts[(length(oil_freq)-51):length(oil_freq),],
-                    seasonal.periods=c(wkly, mthly),
+                    seasonal.periods=c(wkly, mthly, qtrly),
                     ts.frequency = wkly,
                     start=end(oil_msts.tr)+(7/365.25))
 colnames <- c("barrels", "winter", "spring", "summer")
@@ -185,7 +186,7 @@ colnames(oil_msts) <- colnames
 
 
 #tbats using msts
-fit_tbats.msts <- tbats(oil_msts.tr[, "barrels"], seasonal.periods=c(wkly, mthly))
+fit_tbats.msts <- tbats(oil_msts.tr[, "barrels"], seasonal.periods=c(wkly, mthly, qtrly))
 fc_tbats.msts <- forecast(fit_tbats.msts, h=52)
 autoplot(fc_tbats.msts, h=52)
 autoplot(fc_tbats.msts, h=52) + autolayer(oil_round.val)
