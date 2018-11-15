@@ -2,7 +2,24 @@ U.S. Gasoline Production
 ========================================================
 author: Team VP
 date: November 30th, 2018
-autosize: FALSE
+autosize: TRUE
+width: 1920
+height: 1080
+
+
+<style>
+  .col2 {
+    columns: 2 200px;         /* number of columns and width in pixels*/
+    -webkit-columns: 2 200px; /* chrome, safari */
+    -moz-columns: 2 200px;    /* firefox */
+  }
+  .col3 {
+    columns: 3 100px;
+    -webkit-columns: 3 100px;
+    -moz-columns: 3 100px;
+  }
+</style>
+
 
 ```{r, echo=FALSE, }
 require(knitr)
@@ -15,6 +32,7 @@ require(fpp2)
 require(ggplot2)
 require(tidyverse)
 require(dplyr)
+require(plotly)
 dta <- read.csv("C:/Users/ejvpaba/Desktop/Python/Forecasting/US_OIL.csv")
 dta2 <- tail(dta, 260)[,2]
 
@@ -42,30 +60,24 @@ oil_round.val <- ts(oil_freq[209:260], freq=52, start=c(2017, 46))
 ```
 The Data
 ========================================================
-
-<style>
-  .col2 {
-    columns: 2 200px;         /* number of columns and width in pixels*/
-    -webkit-columns: 2 200px; /* chrome, safari */
-    -moz-columns: 2 200px;    /* firefox */
-  }
-  .col3 {
-    columns: 3 100px;
-    -webkit-columns: 3 100px;
-    -moz-columns: 3 100px;
-  }
-</style>
 U.S. Energy Information Administration  
 Weekly U.S Product Supplied of Finished Motor Gasoline  
 
 - Time Series - Weekly data points from 2/8/1991 to current
 - Dependent Variable - Average barrels per day (thousands)
-- Created dummy variables for each season to use as exogenous variables
+- Created dummy variables for each season to use as exogenous variables<br/>
 
-```{r, echo=FALSE, fig.align='center', fig.width=20}
-autoplot(ts(dta$barrels, start=1991 +(38/7)/365.25, frequency = 365.25/7), 
-          ylab = "Barrels (Thousands)", main = "U.S. Oil Production")
+
+
+```{r, echo=FALSE, eval=TRUE}
+oil <- autoplot(ts(dta$barrels, start=1991 +(38/7)/365.25, frequency = 365.25/7), 
+          ylab = "Barrels (Thousands)", main = "U.S. Gasoline Production")
+oil <- ggplotly(oil)
+htmlwidgets::saveWidget(as_widget(oil), file = "oil.html")
 ```
+<div>
+<iframe src="C:/Users/ejvpaba/Desktop/Python/Forecasting/oil.html" style="position:absolute;height:65%;width:75%"></iframe>
+</div>
 
 
 Data Subsets
@@ -75,6 +87,15 @@ For forecasting purposes, we will be looking at the last 260 weeks (~5 years)
 - Training set (.tr) - Week 1 through week 206 (~3 years)
 
 - Test set (.val) - Remaining 52 weeks (final ~1 year)
+
+```{r, echo=FALSE, fig.align='center', fig.width=20}
+ggplot() +
+  autolayer(oil_freq.val, series = 'Validation Data') +
+  autolayer(oil_freq.tr, series = 'Training Data') +
+  labs(title = "U.S. Gasoline Production",
+       subtitle="Training and Validation Data",
+       y="Barrels (Thousands)", x = "Years")
+```
 
 
 Data Variations and Frequencies

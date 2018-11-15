@@ -8,7 +8,7 @@ require(tidyverse)
 require(dplyr)
 require(nnfor)
 require(opera)
-dta
+
 #https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=wgfupus2&f=W
 dta <- read.csv("US_OIL.csv")
 dta2 <- tail(dta, 260)[,2]
