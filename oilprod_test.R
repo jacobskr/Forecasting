@@ -59,13 +59,13 @@ autoplot(fc_ets) + autolayer(oil_freq.val)
 
 checkresiduals(fit_ets)
 
-#STLF Model
-fit_stlf <- stlf(oil_freq.tr)
-fc_stlf <- forecast(fit_stlf, h=52)
-autoplot(fc_stlf)
-autoplot(fc_stlf) + autolayer(oil_freq.val)
+#stlm Model
+fit_stlm <- stlm(oil_freq.tr)
+fc_stlm <- forecast(fit_stlm, h=52)
+autoplot(fc_stlm)
+autoplot(fc_stlm) + autolayer(oil_freq.val)
 
-checkresiduals(fit_stlf)
+checkresiduals(fit_stlm)
 
 #Base Arima Model
 fit_base <- auto.arima(oil_round.tr, stepwise=T)
@@ -252,19 +252,19 @@ comb_season <- (fc_seasons[["mean"]] + fc_freg[["mean"]] +
 autoplot(oil_freq) + autolayer(comb_season)
 comb_nn <- (fc_nn[["mean"]] + fc_nn.xregs[["mean"]])/2
 autoplot(oil_freq) + autolayer(comb_nn)
-comb_rmse <- (fc_stlf[["mean"]] + fc_tbats.msts[["mean"]] +
+comb_rmse <- (fc_stlm[["mean"]] + fc_tbats.msts[["mean"]] +
                 fc_seasons[["mean"]] + fc_freg[["mean"]] +
                 + fc_nn.xregs[["mean"]] + fc_comb[["mean"]])/6
 autoplot(oil_freq) + autolayer(comb_rmse)
 
-#comb_simp <- (fc_ets[["mean"]] + fc_stlf[["mean"]] + fc_base[["mean"]])/3
+#comb_simp <- (fc_ets[["mean"]] + fc_stlm[["mean"]] + fc_base[["mean"]])/3
 #autoplot(oil) + autolayer(comb_simp)
 
 #Find best combo
-names <- c('fc_naive', 'fc_ets', 'fc_stlf', 'fc_base', 
+names <- c('fc_naive', 'fc_ets', 'fc_stlm', 'fc_base', 
            'fc_freg', 'fc_fper', 'fc_seasons', 'fc_comb', 
            'fc_arima.msts', 'fc_tbats.msts', 'fc_nn', 'fc_nn.xregs')
-model_list <- list(fc_naive[["mean"]], fc_ets[["mean"]], fc_stlf[["mean"]],
+model_list <- list(fc_naive[["mean"]], fc_ets[["mean"]], fc_stlm[["mean"]],
                    fc_base[["mean"]], fc_freg[["mean"]], fc_fper[["mean"]], 
                    fc_seasons[["mean"]], fc_comb[["mean"]], fc_arima.msts[["mean"]],
                    fc_tbats.msts[["mean"]], fc_nn[["mean"]], fc_nn.xregs[["mean"]])
@@ -284,13 +284,13 @@ for (i in 2:length(model_list)) {
 }
 combn(names, bestmodel$i)[,bestmodel$c]
 
-comb_best <- (fc_stlf[["mean"]] + fc_tbats.msts[["mean"]])/2
-autoplot(oil_freq) + autolayer(comb_rmse)
+comb_best <- (fc_stlm[["mean"]] + fc_tbats.msts[["mean"]])/2
+autoplot(oil_freq) + autolayer(comb_best)
 
 #Compare Models
 NAIVE_ac <- accuracy(fc_naive, oil_freq.val)
 ETS_ac <- accuracy(fc_ets, oil_freq.val)
-STLF_ac <- accuracy(fc_stlf, oil_freq.val)
+stlm_ac <- accuracy(fc_stlm, oil_freq.val)
 ARIMA.base_ac <- accuracy(fc_base, oil_freq.val)
 ARIMA.freg_ac <- accuracy(fc_freg, oil_freq.val)
 ARIMA.fper_ac <- accuracy(fc_fper, oil_freq.val)
@@ -312,7 +312,7 @@ COMB.best_ac = accuracy(comb_best, oil_freq.val)
 
 sort(c(NAIVE_ac = accuracy(fc_naive, oil_freq.val)["Test set","RMSE"],
   ETS_ac = accuracy(fc_ets, oil_freq.val)["Test set","RMSE"],
-  STLF_ac = accuracy(fc_stlf, oil_freq.val)["Test set","RMSE"],
+  stlm_ac = accuracy(fc_stlm, oil_freq.val)["Test set","RMSE"],
   ARIMA.base_ac = accuracy(fc_base, oil_freq.val)["Test set","RMSE"],
   ARIMA.freg_ac = accuracy(fc_freg, oil_freq.val)["Test set","RMSE"],
   ARIMA.fper_ac = accuracy(fc_fper, oil_freq.val)["Test set","RMSE"],
@@ -335,48 +335,56 @@ sort(c(NAIVE_ac = accuracy(fc_naive, oil_freq.val)["Test set","RMSE"],
 
 #winner! - everything below here needs updating
 autoplot(oil_freq.tr) + autolayer(comb_best) + autolayer(oil_freq.val)
+autoplot(oil_freq.tr) + autolayer(comb_best)
+autoplot(oil_freq.val) + autolayer(comb_best)
 
 
-#Try the combined season forecast instead - create prediction intervals - a bit better
-autoplot(oil_freq.tr) + autolayer(comb_rmse)
+#reate prediction intervals - a bit better
+tst0 <- cbind(fc_stlm$lower, fc_stlm$upper) * (1/2)
+tst1 <- cbind(fc_tbats.msts$lower, fc_tbats.msts$upper) * (1/2)
+#tst2 <- cbind(fc_seasons$lower, fc_seasons$upper) * (1/6)
+#tst3 <- cbind(fc_freg$lower, fc_freg$upper) * (1/6)
+#tst4 <- cbind(fc_nn.xregs$lower, fc_nn.xregs$upper) * (1/6)
+#tst5 <- cbind(fc_comb$lower, fc_comb$upper) * (1/6)
+combined_tst <- cbind((tst0[,1]+tst1[,1]),
+                      (tst0[,2]+tst1[,2]),
+                      (tst0[,3]+tst1[,3]),
+                      (tst0[,4]+tst1[,4]))
+int <- list()
+int$mean <- comb_best
+int$interval <- combined_tst
+colnames(int$interval) <- c('Lo 80', 'Lo 95', 'Hi 80', 'Hi 95')
 
-comb_rmse <- (fc_stlf[["mean"]] + fc_tbats.msts[["mean"]] +
-                fc_seasons[["mean"]] + fc_freg[["mean"]] +
-                + fc_nn.xregs[["mean"]] + fc_comb[["mean"]])/6
-
-tst0 <- cbind(fc_stlf$lower, fc_stlf$upper) * (1/6)
-tst1 <- cbind(fc_tbats.msts$lower, fc_tbats.msts$upper) * (1/6)
-tst2 <- cbind(fc_seasons$lower, fc_seasons$upper) * (1/6)
-tst3 <- cbind(fc_freg$lower, fc_freg$upper) * (1/6)
-tst4 <- cbind(fc_nn.xregs$lower, fc_nn.xregs$upper) * (1/6)
-tst5 <- cbind(fc_comb$lower, fc_comb$upper) * (1/6)
-combined_tst <- cbind((tst0[,1]+tst1[,1]+tst2[,1]+tst3[,1]+tst4[,1]+tst5[,1]),
-                      (tst0[,2]+tst1[,2]+tst2[,2]+tst3[,2]+tst4[,2]+tst5[,2]),
-                      (tst0[,3]+tst1[,3]+tst2[,3]+tst3[,3]+tst4[,3]+tst5[,3]),
-                      (tst0[,4]+tst1[,4]+tst2[,4]+tst3[,4]+tst4[,4]+tst5[,4]))
-comb_season$mean <- comb_rmse
-comb_season$interval <- combined_tst
-colnames(comb_season$interval) <- c('Lo 80', 'Lo 95', 'Hi 80', 'Hi 95')
-
-autoplot(oil_freq.tr) + autolayer(comb_season$mean) +
-  geom_ribbon(data = comb_season$mean, aes(ymin = comb_season$interval[,2], ymax = comb_season$interval[,4]), fill = 'blue', alpha = .2) +
-  geom_ribbon(data = comb_season$mean, aes(ymin = comb_season$interval[,1], ymax = comb_season$interval[,3]), fill= 'red', alpha = .2)
+autoplot(oil_freq.tr) + autolayer(comb_best) +
+  geom_ribbon(data = int$mean, aes(ymin = int$interval[,2], ymax = int$interval[,4]), fill = 'blue', alpha = .2) +
+  geom_ribbon(data = int$mean, aes(ymin = int$interval[,1], ymax = int$interval[,3]), fill= 'red', alpha = .2)
 
 #Now we need to forecast that forward
-autoplot(oil_freq.tr) + autolayer(fc_stlf)
+fit_stlm_for <- stlm(oil_freq, model=fit_stlm)
+fc_stlm_for <- forecast(fit_stlm_for, h=26)
+autoplot(oil_freq) + autolayer(fc_stlm_for)
 
-#Something to try... weighted predictions of multiple models
-# Need to use the model weights to forcast out... multiply each model's
-# forecast for next 52 by the weights, do same with prediction intervals
+fit_tbats_for <- tbats(oil_freq, model=fit_tbats.msts)
+fc_tbats_for <- forecast(fit_tbats_for, h=26)
+autoplot(oil_freq) + autolayer(fc_tbats_for)
 
-comb_seasons.MLpol = cbind(fc_seasons[["mean"]], fc_freg[["mean"]], 
-                              fc_nn.xregs[["mean"]], fc_comb[["mean"]])
-MLpol0 <- mixture(model = 'MLpol', loss.type = 'square')
-weights <- predict(MLpol0, comb_seasons.MLpol, oil_freq.val, type = 'weights')
-resp <- predict(MLpol0, comb_seasons.MLpol, oil_freq.val, type = 'response')
-model <- predict(MLpol0, comb_seasons.MLpol, oil_freq.val, type = 'model')
-fc_op_sns <- ts(predict(MLpol0, comb_seasons.MLpol, oil_freq.val, type = 'response'),
-                start = end(oil_freq.tr), frequency = 365.25/7)
+autoplot(fc_tbats_for$mean) + autolayer(fc_stlm_for$mean)
 
-autoplot(oil_freq.tr) + autolayer(fc_op_sns) + autolayer(oil_freq.val)
-accuracy(fc_op_sns, oil_freq.val)
+comb_best_for <- (fc_tbats_for[["mean"]] + fc_stlm_for[["mean"]])/2
+autoplot(oil_freq.val) + autolayer(comb_best_for)
+
+#Confidence intervals for forward forecast
+tst.for0 <- cbind(fc_stlm_for$lower, fc_stlm_for$upper) * (1/2)
+tst1.for1 <- cbind(fc_tbats_for$lower, fc_tbats_for$upper) * (1/2)
+combined_tst.for <- cbind((tst.for0[,1]+tst1.for1[,1]),
+                          (tst.for0[,2]+tst1.for1[,2]),
+                          (tst.for0[,3]+tst1.for1[,3]),
+                          (tst.for0[,4]+tst1.for1[,4]))
+int.for <- list()
+int.for$mean <- comb_best_for
+int.for$interval <- combined_tst.for
+colnames(int.for$interval) <- c('Lo 80', 'Lo 95', 'Hi 80', 'Hi 95')
+
+autoplot(oil_freq.val) + autolayer(comb_best_for) +
+  geom_ribbon(data = int.for$mean, aes(ymin = int.for$interval[,2], ymax = int.for$interval[,4]), fill = 'blue', alpha = .2) +
+  geom_ribbon(data = int.for$mean, aes(ymin = int.for$interval[,1], ymax = int.for$interval[,3]), fill= 'red', alpha = .2)
