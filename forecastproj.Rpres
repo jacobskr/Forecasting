@@ -56,6 +56,23 @@ oil_round <- ts(dta2, freq=52, start = c(2013, 46))
 oil_round.tr <- ts(oil_freq[1:208], freq=52, start=c(2013, 46))
 oil_round.val <- ts(oil_freq[209:260], freq=52, start=c(2017, 46))
 
+wkly <- 365.25 / 7
+mthly <- 12
+qtrly <- 4
+oil_msts <- data.frame(dta2)
+oil_msts[,c(2,3,4)] <- seasons
+oil_msts <- msts(oil_msts, seasonal.periods=c(wkly, mthly, qtrly),
+                 ts.frequency = wkly, start=2014-(46/365.25))
+oil_msts.tr <-msts(oil_msts[1:208,], seasonal.periods=c(wkly, mthly, qtrly), 
+                   ts.frequency = wkly, start=2014-(46/365.25))
+oil_msts.val <- msts(oil_msts[(length(oil_freq)-51):length(oil_freq),],
+                    seasonal.periods=c(wkly, mthly, qtrly),
+                    ts.frequency = wkly,
+                    start=end(oil_msts.tr)+(7/365.25))
+colnames <- c("barrels", "winter", "spring", "summer")
+colnames(oil_msts.tr) <- colnames
+colnames(oil_msts.val) <- colnames
+colnames(oil_msts) <- colnames
 
 ```
 The Data
@@ -86,51 +103,50 @@ For forecasting purposes, we will be looking at the last 260 weeks (~5 years)
 
 - Training set (.tr) - Week 1 through week 206 (~3 years)
 
-- Test set (.val) - Remaining 52 weeks (final ~1 year)
+- Validation set (.val) - Remaining 52 weeks (final ~1 year)
 
 ```{r, echo=FALSE, fig.align='center', fig.width=20}
-ggplot() +
-  autolayer(oil_freq.val, series = 'Validation Data') +
-  autolayer(oil_freq.tr, series = 'Training Data') +
-  labs(title = "U.S. Gasoline Production",
-       subtitle="Training and Validation Data",
-       y="Barrels (Thousands)", x = "Years")
+oil_seg <- ggplot() +
+            autolayer(oil_freq.val, series = 'Validation Data') +
+            autolayer(oil_freq.tr, series = 'Training Data') +
+            labs(title = "U.S. Gasoline Production",
+                 subtitle="Training and Validation Data",
+                 y="Barrels (Thousands)", x = "Years")
+oil_seg <- ggplotly(oil_seg)
+htmlwidgets::saveWidget(as_widget(oil_seg), file = "oil_seg.html")
 ```
-
+<div>
+<iframe src="C:/Users/ejvpaba/Desktop/Python/Forecasting/oil_seg.html" style="position:absolute;height:65%;width:85%"></iframe>
+</div>
 
 Data Variations and Frequencies
 ========================================================
-
+<br/>
+<br/>
+<br/>
  Created three variations of data:  
+<br/>
+<br/>
 
 
 <div class="col3">
 oil_round:<br/>
-frequency = 52<br/>
+frequency = `r frequency(oil_round)`<br/>
 start oil_round.tr = (2013, 46)<br/>
 end oil_round.val = (2018, 45)<br/>
 
 oil_freq:<br/>
-frequency = 'r wkly' 365.25/7<br/>  
-start oil_round.tr =  
-end oil_round.val =   
+frequency = `r round(wkly,3)` $(365.25/7)$<br/>  
+start oil_round.tr = `r start(oil_freq.tr)`<br/>
+end oil_round.val = `r end(oil_freq.val)`<br/>  
 
-oil_freq:  
-frequency = 365.25/7, 12, 4 
-start oil_round.tr =   
-end oil_round.val =  
+oil_freq:<br/>
+frequency = `r round(wkly,3)` $(365.25/7)$, 12, 4<br/>
+start oil_round.tr = `r start(oil_msts.tr)`<br/>
+end oil_round.val = `r end(oil_msts.val)`<br/>
 </div>
 
-Slide With Code
+Slide
 ========================================================
 
-```{r}
-summary(cars)
-```
 
-Slide With Plot
-========================================================
-
-```{r, echo=FALSE}
-plot(cars)
-```
