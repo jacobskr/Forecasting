@@ -146,7 +146,34 @@ start oil_round.tr = `r start(oil_msts.tr)`<br/>
 end oil_round.val = `r end(oil_msts.val)`<br/>
 </div>
 
-Slide
+Seasons
 ========================================================
 
+Adding seasons to the combination of the training and validation data:
+```{r}
+seasonsts <- c()
+for (i in seq(1:nrow(seasons))) {
+  if (seasons[i,1] == 1) {
+    seasonsts[[i]] = 0
+  }
+  else if (seasons[i,2] == 1) {
+    seasonsts[[i]] = 1
+  }
+  else if (seasons[i,3] == 1) {
+    seasonsts[[i]] = 2
+  }
+  else {
+    seasonsts[[i]] = 3
+  }
+}
+
+
+
+
+#seasonsts <- ts(seasonsts, freq=52, start = c(2013, 46))
+oil_seasons1$oil <- oil_round
+oil_seasons1$seasons <- seasonsts
+
+autoplot(seasonsts[,"oil_round"]), aes(seasons, oil_round))
+```
 
