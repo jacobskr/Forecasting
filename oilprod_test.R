@@ -97,9 +97,9 @@ pd <- periodogram(oil_freq.tr)
 data.table(period=1/pd$freq, spec=pd$spec)[order(-spec)][1:5]
 
 bestfit1 <- list(aicc=Inf)
-for(i in 1:25) { 
-  for (j in 1:15){ 
-    for (p in 1:15){ #i,j, and p need to be < freq/2
+for(i in 1:5) { 
+  for (j in 1:5){ 
+    for (p in 1:5){ #i,j, and p need to be < freq/2
       try({
       z1 <- fourier(ts(oil_freq.tr, frequency=54), K=i)
       z2 <- fourier(ts(oil_freq.tr, frequency=72), K=j)
@@ -118,11 +118,11 @@ for(i in 1:25) {
 fc_fper <- forecast(bestfit1$fit, 
                        xreg=cbind(
                          fourier(ts(oil_freq.tr, frequency=54),
-                                 K=3, h=length(oil_freq.val)),
-                         fourier(ts(oil_freq.tr, frequency=72), K=1,
+                                 K=bestfit1$i, h=length(oil_freq.val)),
+                         fourier(ts(oil_freq.tr, frequency=72), K=bestfit1$j,
                                  h=length(oil_freq.val)),
                          fourier(ts(oil_freq.tr, frequency=30.85714286),
-                                 K=3, h=length(oil_freq.val))))
+                                 K=bestfit1$p, h=length(oil_freq.val))))
 autoplot(fc_fper, h=52)
 autoplot(fc_fper, h=52) + autolayer(oil_freq.val)
 
@@ -167,8 +167,8 @@ checkresiduals(bestfit2$fit)
 
 #Multiseasonal dataset
 wkly <- 365.25 / 7
-mthly <- 12
-qtrly <- 4
+mthly <- wkly / 12
+qtrly <- wkly / 4
 oil_msts <- data.frame(dta2)
 oil_msts[,c(2,3,4)] <- seasons
 oil_msts <- msts(oil_msts, seasonal.periods=c(wkly, mthly, qtrly),
