@@ -1,0 +1,171 @@
+---
+title: U.S. Gasoline Production
+author: Team VP
+date: November 30, 2018
+output:
+  ioslides_presentation:
+    css: myCss4.css
+autosize: TRUE
+width: 1440
+height: 1200
+
+---
+```{r, echo=FALSE, eval=TRUE,message=FALSE,warning=FALSE}
+require(knitr)
+require(kableExtra)
+require(data.table)
+require(TSA)
+require(forecast)
+require(xts)
+require(fpp2)
+require(ggplot2)
+require(plotly)
+require(digest)
+dta <- read.csv("C:/Users/User/Desktop/Forecasting/Group_Project/US_OIL.csv")
+dta2 <- tail(dta, 260)[,2]
+
+#seasons data
+seasons <- read.csv("C:/Users/User/Desktop/Forecasting/Group_Project/seasons.csv")
+seasons <- tail(seasons, 260)
+seasons <- seasons[,c(2,3,4)]
+seasons.tr <- seasons[1:208,]
+seasons.val <- seasons[209:260,]
+
+# True frequency training/validation sets
+oil_freq <- ts(dta2, frequency = 365.25/7, start=2014-(46/365.25))
+oil_freq.tr <- ts(oil_freq[1:208], freq=365.25/7, start=2014-(46/365.25))
+oil_freq.val <- ts(oil_freq[(length(oil_freq)-51):length(oil_freq)],
+                   freq=365.25/7, 
+                   start=end(oil_freq.tr)+(7/365.25))
+
+
+#Rounded frequency training/validation sets
+oil_round <- ts(dta2, freq=52, start = c(2013, 46))
+oil_round.tr <- ts(oil_freq[1:208], freq=52, start=c(2013, 46))
+oil_round.val <- ts(oil_freq[209:260], freq=52, start=c(2017, 46))
+
+wkly <- 365.25 / 7
+mthly <- wkly / 12
+qtrly <- wkly / 4
+oil_msts <- data.frame(dta2)
+oil_msts[,c(2,3,4)] <- seasons
+oil_msts <- msts(oil_msts, seasonal.periods=c(wkly, mthly, qtrly),
+                 ts.frequency = wkly, start=2014-(46/365.25))
+oil_msts.tr <-msts(oil_msts[1:208,], seasonal.periods=c(wkly, mthly, qtrly), 
+                   ts.frequency = wkly, start=2014-(46/365.25))
+oil_msts.val <- msts(oil_msts[(length(oil_freq)-51):length(oil_freq),],
+                    seasonal.periods=c(wkly, mthly, qtrly),
+                    ts.frequency = wkly,
+                    start=end(oil_msts.tr)+(7/365.25))
+colnames <- c("barrels", "winter", "spring", "summer")
+colnames(oil_msts.tr) <- colnames
+colnames(oil_msts.val) <- colnames
+colnames(oil_msts) <- colnames
+
+```
+
+#The Data
+## 
+<div class="centered">
+### <b> U.S. Energy Information Administration </b>
+
+Weekly U.S Product Supplied of Finished Motor Gasoline
+
+- Time Series - Weekly data points from 2/8/1991 to current
+- Dependent Variable - Average barrels per day (thousands)
+- Created dummy variables for each season to use as exogenous variables
+</div>
+
+```{r, echo=FALSE, eval=TRUE}
+oil <- autoplot(ts(dta$barrels, start=1991 +(38/7)/365.25, frequency = 365.25/7),           ylab = "Barrels (Thousands)", main = "U.S. Gasoline Production")
+oil <- ggplotly(oil)
+# htmlwidgets::saveWidget(as_widget(oil), file = "oil.html")
+```
+<!-- <div> -->
+<!-- <iframe src="C:/Users/User/Desktop/Forecasting/Group_Project/oil.html" style="position:absolute;height:50%;width:70%"></iframe> -->
+<!-- </div> -->
+\center `r oil`
+
+## 
+<div class="centered">
+### <b> Data Subsets </b>
+
+For forecasting purposes, we will be looking at the last 260 weeks (~5 years)
+
+- Training set (.tr) - Week 1 through week 206 (~3 years)
+- Validation set (.val) - Remaining 52 weeks (final ~1 year)
+</div>
+```{r, echo=FALSE, fig.align='center', warning=FALSE}
+oil_seg <- ggplot() +
+            autolayer(oil_freq.val, series = 'Validation Data') +
+            autolayer(oil_freq.tr, series = 'Training Data') +
+            labs(title = "U.S. Gasoline Production",
+                 subtitle="Training and Validation Data",
+                 y="Barrels (Thousands)", x = "Years")
+oil_seg <-  ggplotly(oil_seg)
+#htmlwidgets::saveWidget(as_widget(oil_seg), file = "oil_seg.html")
+```
+
+\center `r oil_seg`
+
+
+## {.build}
+<div class="centered">
+### <b>Data Variations and Frequencies</b>
+</div>
+<br/>
+<br/>
+<br/>
+<br/>
+
+<div class="col3">
+###oil_round
+frequency = `r frequency(oil_round)`<br/>
+start oil_round.tr = (2013, 46)<br/>
+end oil_round.val = (2018, 45)<br/>
+
+###oil_freq
+frequency = `r round(wkly,3)` $(365.25/7)$<br/>
+start oil_freq.tr = `r start(oil_freq.tr)`<br/>
+end oil_freq.val = `r end(oil_freq.val)`<br/>
+
+###oil_msts
+frequency = `r round(wkly,3)`, `r round(mthly,3)`, `r round(qtrly,3)`<br/>
+start oil_msts.tr = `r start(oil_msts.tr)`<br/>
+end oil_msts.val = `r end(oil_msts.val)`<br/>
+</div>
+
+#Approach
+##
+<div class="centered">
+### <b>Forecasting Approaches</b>
+</div>
+
+<br/>
+<div class="columns-2">
+####First Models: 
+>- Naive
+>- STLM
+>- Auto Arima (w/ and w/o seasonal regressor)
+
+####Fourier Models:
+>- Data periods, test number of regressors (w/ and w/o seasonal regressor)
+>- Highest spectral power densities, iterate regressors
+
+####Mutiseasonal Models:
+>- TBATs
+>- MSTS Arima with covariates
+
+####Neural Network Models:
+>- Neural Network (w/ and w/o seasonal regressor)
+
+####Combined Models:
+>- Multiseasonal
+>- Fourier
+>- External Regressors
+>- Neural Networks
+>- RMSE
+</div>
+
+
+
