@@ -20,7 +20,7 @@ require(xts)
 require(fpp2)
 require(ggplot2)
 require(plotly)
-require(digest)
+#require(digest)
 dta <- read.csv("C:/Users/User/Desktop/Forecasting/Group_Project/US_OIL.csv")
 dta2 <- tail(dta, 260)[,2]
 
@@ -164,7 +164,7 @@ end oil_msts.val = `r end(oil_msts.val)`<br/>
 >- Fourier
 >- External Regressors
 >- Neural Networks
->- RMSE
+>- Best Model
 </div>
 
 
