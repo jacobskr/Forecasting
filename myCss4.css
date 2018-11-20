@@ -28,3 +28,7 @@ body slides > slide
     -moz-columns: 3 100px;
   }
 </style>
+
+.MathJax {
+font-size: 36em !important;
+}

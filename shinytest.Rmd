@@ -1,5 +1,5 @@
 ---
-title: "Untitled"
+title: "Gasoline Production"
 author: "Kyle Jacobs"
 date: "November 19, 2018"
 output:
@@ -8,7 +8,7 @@ output:
 runtime: shiny
 ---
 
-```{r message=FALSE, warning=FALSE, include=FALSE}
+```{r message=FALSE, warning=FALSE, include=FALSE, eval=FALSE}
 require(data.table)
 require(TSA)
 require(forecast)
@@ -207,9 +207,10 @@ Com_Best <- comb_best
 decom_oil <- decompose(oil_round)
 ```
 
-## Forecast Models
+##
 
-```{r ModelsShiny, echo=FALSE, eval=FALSE}
+```{r ModelsShiny, echo=FALSE}
+
 shinyApp(
 ui <- fluidPage(
   (titlePanel("Forecast Models")),
@@ -235,7 +236,7 @@ ui <- fluidPage(
                                        fluidRow(
                                          column(12, plotlyOutput("fcmodel")),
                                          column(12, plotOutput("residuals")))),
-                              tabPanel("Math")
+                              tabPanel("Misc/Notes", uiOutput("math"))
 
                                        )
                           )
@@ -472,7 +473,15 @@ server = function(input, output)
     }
   })
   output$decom = renderPlot(plot(decom_oil))
-}
+  output$math = renderUI({
+    if (input$FC_Model == "Naive") {
+      withMathJax(
+        helpText('\bSimple Baseline Forecast: $$y_t+h|t = y_t$$')
+        )
+        }
+      })
+    })
+  }
 )
 ```
 

@@ -12,7 +12,7 @@ require(opera)
 #https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=wgfupus2&f=W
 dta <- read.csv("US_OIL.csv")
 dta2 <- tail(dta, 260)[,2]
-
+plot(dta2)
 #seasons data
 seasons <- read.csv("seasons.csv")
 seasons <- tail(seasons, 260)
@@ -279,13 +279,18 @@ for (i in 2:length(model_list)) {
     ac <- accuracy(avg, oil_freq.val)["Test set","RMSE"]
     if (ac < bestRMSE) {
       bestRMSE <- ac
-      bestmodel <- list(RMSE=bestRMSE, i=i, c=c)
+      bestmodel <- list(RMSE=bestRMSE, i=i, c=c, means=avg)
     }
   }
 }
 combn(names, bestmodel$i)[,bestmodel$c]
 
-comb_best <- (fc_stlm[["mean"]] + fc_tbats.msts[["mean"]])/2
+comb_best <- ts(bestmodel$means, frequency = 365.25/7, start = start(oil_freq.val))
+
+
+# comb_best <- (fc_stlm[["mean"]] + fc_base[["mean"]] +
+#               fc_fper[["mean"]] + fc_seasons[["mean"]] +
+#               fc_nn.xregs[["mean"]])/5
 autoplot(oil_freq) + autolayer(comb_best)
 
 #Compare Models
@@ -343,9 +348,9 @@ autoplot(oil_freq.val) + autolayer(comb_best)
 #reate prediction intervals - a bit better
 tst0 <- cbind(fc_stlm$lower, fc_stlm$upper) * (1/2)
 tst1 <- cbind(fc_tbats.msts$lower, fc_tbats.msts$upper) * (1/2)
-#tst2 <- cbind(fc_seasons$lower, fc_seasons$upper) * (1/6)
-#tst3 <- cbind(fc_freg$lower, fc_freg$upper) * (1/6)
-#tst4 <- cbind(fc_nn.xregs$lower, fc_nn.xregs$upper) * (1/6)
+tst2 <- cbind(fc_seasons$lower, fc_seasons$upper) * (1/6)
+tst3 <- cbind(fc_freg$lower, fc_freg$upper) * (1/6)
+tst4 <- cbind(fc_nn.xregs$lower, fc_nn.xregs$upper) * (1/6)
 #tst5 <- cbind(fc_comb$lower, fc_comb$upper) * (1/6)
 combined_tst <- cbind((tst0[,1]+tst1[,1]),
                       (tst0[,2]+tst1[,2]),
