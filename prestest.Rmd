@@ -65,7 +65,7 @@ colnames(oil_msts) <- colnames
 ```
 
 #The Data
-## 
+##
 <div class="centered">
 ### <b> U.S. Energy Information Administration </b>
 
