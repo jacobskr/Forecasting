@@ -19,13 +19,15 @@ require(tidyverse)
 require(dplyr)
 require(nnfor)
 require(opera)
+require(plotly)
+require(shiny)
 
 #https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=wgfupus2&f=W
-dta <- read.csv("C:/Users/ejvpaba/Desktop/Python/Forecasting/US_OIL.csv")
+dta <- read.csv("C:/Users/User/Desktop/Forecasting/Group_Project/US_OIL.csv")
 dta2 <- tail(dta, 260)[,2]
 
 #seasons data
-seasons <- read.csv("C:/Users/ejvpaba/Desktop/Python/Forecasting/seasons.csv")
+seasons <- read.csv("C:/Users/User/Desktop/Forecasting/Group_Project/seasons.csv")
 seasons <- tail(seasons, 260)
 seasons <- seasons[,c(2,3,4)]
 seasons.tr <- seasons[1:208,]
@@ -210,278 +212,290 @@ decom_oil <- decompose(oil_round)
 ##
 
 ```{r ModelsShiny, echo=FALSE}
-
+require(plotly)
+require(shiny)
 shinyApp(
-ui <- fluidPage(
-  (titlePanel("Forecast Models")),
-  sidebarLayout(position = "left",
-                sidebarPanel("Selection", 
-                             width = 2,
-                             selectInput(inputId = "FC_Model", 
-                                         label = "Model",
-                                         choices = c("Naive", "ETS", "STLM", "Base_Arima",
-                                                     "Base_Arima_Sns", "Fourier_Reg",
-                                                     "Fourier_Reg_Sns", "Fourier_Period",
-                                                     "TBATS", "MSTS_Sns", "NN", "NN_Sns",
-                                                     "Com_MSTS", "Com_Fourier", "Com_Sns",
-                                                     "Com_NN", "Com_Best")),
-                checkboxInput(inputId = "val",
-                              label = "Show Validation Data",
-                              value = FALSE)),
-                mainPanel(
-                  tabsetPanel(type = 'tabs',
-                              tabPanel("Decomposition",
-                                       plotOutput("decom", height = '800px')),
-                              tabPanel("Forecasts",
-                                       fluidRow(
-                                         column(12, plotlyOutput("fcmodel")),
-                                         column(12, plotOutput("residuals")))),
-                              tabPanel("Misc/Notes", uiOutput("math"))
-
-                                       )
-                          )
-                )
-  ),
-
-server = function(input, output) 
-{
-  output$fcmodel =   renderPlotly({
-    if (input$FC_Model == "Naive"){
-      if (input$val) {
-        naivegg <- ggplot() +
-                   autolayer(Naive$mean, series = 'Forecast') +
-                   autolayer(oil_freq.val, series = 'Validation Data')
-        ggplotly(naivegg)
-      }
-      else {
-        ggplotly(autoplot(Naive))
-      }
-    }
-    else if (input$FC_Model == "ETS"){
-      if (input$val) {
-        etsgg <- ggplot() +
-                   autolayer(ETS$mean, series = 'Forecast') +
-                   autolayer(oil_freq.val, series = 'Validation Data')
-        ggplotly(etsgg)
-      }
-      else {
-        ggplotly(autoplot(ETS))
-      }
-    }
-    else if (input$FC_Model == "STLM"){
-      if (input$val) {
-        stlmgg <- ggplot() +
-                   autolayer(STLM$mean, series = 'Forecast') +
-                   autolayer(oil_freq.val, series = 'Validation Data')
-        ggplotly(stlmgg)
-      }
-      else {
-        ggplotly(autoplot(STLM)) 
-      }
-    }
-    else if (input$FC_Model == "Base_Arima"){
-      if (input$val) {
-        bagg <- ggplot() +
-                   autolayer(Base_Arima$mean, series = 'Forecast') +
-                   autolayer(oil_freq.val, series = 'Validation Data')
-        ggplotly(bagg)
-      }
-      else {
-        ggplotly(autoplot(Base_Arima)) 
-      }
-    }
-    else if (input$FC_Model == "Base_Arima_Sns"){
-      if (input$val) {
-        basgg <- ggplot() +
-                   autolayer(Base_Arima_Sns$mean, series = 'Forecast') +
-                   autolayer(oil_freq.val, series = 'Validation Data')
-        ggplotly(basgg)
-      }
-      else {
-        ggplotly(autoplot(Base_Arima_Sns)) 
-      }
-    }
-    else if (input$FC_Model == "Fourier_Reg"){
-      if (input$val) {
-        frgg <- ggplot() +
-                   autolayer(Fourier_Reg$mean, series = 'Forecast') +
-                   autolayer(oil_freq.val, series = 'Validation Data')
-        ggplotly(frgg)
-      }
-      else {
-        ggplotly(autoplot(Fourier_Reg)) 
-      }
-    }
-    else if (input$FC_Model == "Fourier_Reg_Sns"){
-      if (input$val) {
-        frsgg <- ggplot() +
-                   autolayer(Fourier_Reg_Sns$mean, series = 'Forecast') +
-                   autolayer(oil_freq.val, series = 'Validation Data')
-        ggplotly(frsgg)
-      }
-      else {
-        ggplotly(autoplot(Fourier_Reg_Sns)) 
-      }
-    }
-    else if (input$FC_Model == "Fourier_Period"){
-      if (input$val) {
-        fpgg <- ggplot() +
-                   autolayer(Fourier_Period$mean, series = 'Forecast') +
-                   autolayer(oil_freq.val, series = 'Validation Data')
-        ggplotly(fpgg)
-      }
-      else {
-        ggplotly(autoplot(Fourier_Period)) 
-      }
-    }
-    else if (input$FC_Model == "TBATS"){
-      if (input$val) {
-        tbatsgg <- ggplot() +
-                   autolayer(MSTS_TBATS$mean, series = 'Forecast') +
-                   autolayer(oil_freq.val, series = 'Validation Data')
-        ggplotly(tbatsgg)
-      }
-      else {
-        ggplotly(autoplot(MSTS_TBATS)) 
-      }
-    }
-    else if (input$FC_Model == "MSTS_Sns"){
-      if (input$val) {
-        mstssgg <- ggplot() +
-                   autolayer(MSTS_Sns$mean, series = 'Forecast') +
-                   autolayer(oil_freq.val, series = 'Validation Data')
-        ggplotly(mstssgg)
-      }
-      else {
-        ggplotly(autoplot(MSTS_Sns)) 
-      }
-    }
-    else if (input$FC_Model == "NN"){
-      if (input$val) {
-        nngg <- ggplot() +
-                   autolayer(NN$mean, series = 'Forecast') +
-                   autolayer(oil_freq.val, series = 'Validation Data')
-        ggplotly(nngg)
-      }
-      else {
-        ggplotly(autoplot(NN)) 
-      }
-    }
-    else if (input$FC_Model == "NN_Sns"){
-      if (input$val) {
-        nnsgg <- ggplot() +
-                   autolayer(NN_Sns$mean, series = 'Forecast') +
-                   autolayer(oil_freq.val, series = 'Validation Data')
-        ggplotly(nnsgg)
-      }
-      else {
-        ggplotly(autoplot(NN_Sns)) 
-      }
-    }
-    else if (input$FC_Model == "Com_MSTS"){
-      if (input$val) {
-        cmstsgg <- ggplot() +
-                   autolayer(Com_MSTS, series = 'Forecast') +
-                   autolayer(oil_freq.val, series = 'Validation Data')
-        ggplotly(cmstsgg)
-      }
-      else {
-        ggplotly(autoplot(oil_freq.tr) + autolayer(Com_MSTS)) 
-      }
-    }
-    else if (input$FC_Model == "Com_Fourier"){
-      if (input$val) {
-        cfgg <- ggplot() +
-                   autolayer(Com_Fourier, series = 'Forecast') +
-                   autolayer(oil_freq.val, series = 'Validation Data')
-        ggplotly(cfgg)
-      }
-      else {
-        ggplotly(autoplot(oil_freq.tr) + autolayer(Com_Fourier)) 
-      }
-    }
-    else if (input$FC_Model == "Com_Sns"){
-      if (input$val) {
-        csgg <- ggplot() +
-                   autolayer(Com_Sns, series = 'Forecast') +
-                   autolayer(oil_freq.val, series = 'Validation Data')
-        ggplotly(csgg)
-      }
-      else {
-        ggplotly(autoplot(oil_freq.tr) + autolayer(Com_Sns)) 
-      }
-    }
-    else if (input$FC_Model == "Com_NN"){
-      if (input$val) {
-        cnngg <- ggplot() +
-                   autolayer(Com_NN, series = 'Forecast') +
-                   autolayer(oil_freq.val, series = 'Validation Data')
-        ggplotly(cnngg)
-      }
-      else {
-        ggplotly(autoplot(oil_freq.tr) + autolayer(Com_NN)) 
-      }
-    }
-    else if (input$FC_Model == "Com_Best"){
-      if (input$val) {
-        cbestgg <- ggplot() +
-                   autolayer(Com_Best, series = 'Forecast') +
-                   autolayer(oil_freq.val, series = 'Validation Data')
-        ggplotly(cbestgg)
-      }
-      else {
-        ggplotly(autoplot(oil_freq.tr) + autolayer(Com_Best)) 
-      }
-    }
-  })
-  output$residuals = renderPlot({
-    if (input$FC_Model == "Naive") {
-      checkresiduals(Naive, test=F)
-    }
-    else if (input$FC_Model == "ETS") {
-      checkresiduals(ETS, test=F)
-    }
-    else if (input$FC_Model == "STLM") {
-      checkresiduals(STLM, test=F)
-    }
-    else if (input$FC_Model == "Base_Arima") {
-      checkresiduals(Base_Arima, test=F)
-    }
-    else if (input$FC_Model == "Base_Arima_Sns") {
-      checkresiduals(Base_Arima_Sns, test=F)
-    }
-    else if (input$FC_Model == "Fourier_Reg") {
-      checkresiduals(Fourier_Reg, test=F)
-    }
-    else if (input$FC_Model == "Fourier_Reg_Sns") {
-      checkresiduals(Fourier_Reg_Sns, test=F)
-    }
-    else if (input$FC_Model == "Fourier_Period") {
-      checkresiduals(Fourier_Period, test=F)
-    }
-    else if (input$FC_Model == "TBATS") {
-      checkresiduals(TBATS, test=F)
-    }
-    else if (input$FC_Model == "MSTS_Sns") {
-      checkresiduals(MSTS_Sns, test=F)
-    }
-    else if (input$FC_Model == "NN") {
-      checkresiduals(NN, test=F)
-    }
-    else if (input$FC_Model == "NN_Sns") {
-      checkresiduals(NN_Sns, test=F)
-    }
-  })
-  output$decom = renderPlot(plot(decom_oil))
-  output$math = renderUI({
-    if (input$FC_Model == "Naive") {
-      withMathJax(
-        helpText('\bSimple Baseline Forecast: $$y_t+h|t = y_t$$')
-        )
+  ui <- fluidPage(theme='myCss4.css',
+    (titlePanel("Forecast Models")),
+    sidebarLayout(position = "left",
+                  sidebarPanel("Selection", 
+                               width = 2,
+                               selectInput(inputId = "FC_Model", 
+                                           label = "Model",
+                                           choices = c("Naive", "ETS", "STLM", "Base_Arima",
+                                                       "Base_Arima_Sns", "Fourier_Reg",
+                                                       "Fourier_Reg_Sns", "Fourier_Period",
+                                                       "TBATS", "MSTS_Sns", "NN", "NN_Sns",
+                                                       "Com_MSTS", "Com_Fourier", "Com_Sns",
+                                                       "Com_NN", "Com_Best")),
+                  checkboxInput(inputId = "val",
+                                label = "Show Validation Data",
+                                value = FALSE)),
+                  mainPanel(
+                    tabsetPanel(type = 'tabs',
+                                tabPanel("Decomposition",
+                                         plotOutput("decom", height = '800px')),
+                                tabPanel("Forecasts",
+                                         fluidRow(
+                                           column(12, plotlyOutput("fcmodel")),
+                                           column(12, plotOutput("residuals")))),
+                                tabPanel("Misc/Notes",
+                                         fluidRow(column(12,
+                                                  column(6, uiOutput("math")),
+                                                  column(6))))
+  
+                                         )
+                            )
+                  )
+    ),
+  
+  server = function(input, output) 
+  {
+    output$fcmodel =   renderPlotly({
+      if (input$FC_Model == "Naive"){
+        if (input$val) {
+          naivegg <- ggplot() +
+                     autolayer(Naive$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(naivegg)
         }
-      })
+        else {
+          ggplotly(autoplot(Naive))
+        }
+      }
+      else if (input$FC_Model == "ETS"){
+        if (input$val) {
+          etsgg <- ggplot() +
+                     autolayer(ETS$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(etsgg)
+        }
+        else {
+          ggplotly(autoplot(ETS))
+        }
+      }
+      else if (input$FC_Model == "STLM"){
+        if (input$val) {
+          stlmgg <- ggplot() +
+                     autolayer(STLM$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(stlmgg)
+        }
+        else {
+          ggplotly(autoplot(STLM)) 
+        }
+      }
+      else if (input$FC_Model == "Base_Arima"){
+        if (input$val) {
+          bagg <- ggplot() +
+                     autolayer(Base_Arima$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(bagg)
+        }
+        else {
+          ggplotly(autoplot(Base_Arima)) 
+        }
+      }
+      else if (input$FC_Model == "Base_Arima_Sns"){
+        if (input$val) {
+          basgg <- ggplot() +
+                     autolayer(Base_Arima_Sns$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(basgg)
+        }
+        else {
+          ggplotly(autoplot(Base_Arima_Sns)) 
+        }
+      }
+      else if (input$FC_Model == "Fourier_Reg"){
+        if (input$val) {
+          frgg <- ggplot() +
+                     autolayer(Fourier_Reg$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(frgg)
+        }
+        else {
+          ggplotly(autoplot(Fourier_Reg)) 
+        }
+      }
+      else if (input$FC_Model == "Fourier_Reg_Sns"){
+        if (input$val) {
+          frsgg <- ggplot() +
+                     autolayer(Fourier_Reg_Sns$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(frsgg)
+        }
+        else {
+          ggplotly(autoplot(Fourier_Reg_Sns)) 
+        }
+      }
+      else if (input$FC_Model == "Fourier_Period"){
+        if (input$val) {
+          fpgg <- ggplot() +
+                     autolayer(Fourier_Period$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(fpgg)
+        }
+        else {
+          ggplotly(autoplot(Fourier_Period)) 
+        }
+      }
+      else if (input$FC_Model == "TBATS"){
+        if (input$val) {
+          tbatsgg <- ggplot() +
+                     autolayer(MSTS_TBATS$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(tbatsgg)
+        }
+        else {
+          ggplotly(autoplot(MSTS_TBATS)) 
+        }
+      }
+      else if (input$FC_Model == "MSTS_Sns"){
+        if (input$val) {
+          mstssgg <- ggplot() +
+                     autolayer(MSTS_Sns$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(mstssgg)
+        }
+        else {
+          ggplotly(autoplot(MSTS_Sns)) 
+        }
+      }
+      else if (input$FC_Model == "NN"){
+        if (input$val) {
+          nngg <- ggplot() +
+                     autolayer(NN$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(nngg)
+        }
+        else {
+          ggplotly(autoplot(NN)) 
+        }
+      }
+      else if (input$FC_Model == "NN_Sns"){
+        if (input$val) {
+          nnsgg <- ggplot() +
+                     autolayer(NN_Sns$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(nnsgg)
+        }
+        else {
+          ggplotly(autoplot(NN_Sns)) 
+        }
+      }
+      else if (input$FC_Model == "Com_MSTS"){
+        if (input$val) {
+          cmstsgg <- ggplot() +
+                     autolayer(Com_MSTS, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(cmstsgg)
+        }
+        else {
+          ggplotly(autoplot(oil_freq.tr) + autolayer(Com_MSTS)) 
+        }
+      }
+      else if (input$FC_Model == "Com_Fourier"){
+        if (input$val) {
+          cfgg <- ggplot() +
+                     autolayer(Com_Fourier, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(cfgg)
+        }
+        else {
+          ggplotly(autoplot(oil_freq.tr) + autolayer(Com_Fourier)) 
+        }
+      }
+      else if (input$FC_Model == "Com_Sns"){
+        if (input$val) {
+          csgg <- ggplot() +
+                     autolayer(Com_Sns, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(csgg)
+        }
+        else {
+          ggplotly(autoplot(oil_freq.tr) + autolayer(Com_Sns)) 
+        }
+      }
+      else if (input$FC_Model == "Com_NN"){
+        if (input$val) {
+          cnngg <- ggplot() +
+                     autolayer(Com_NN, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(cnngg)
+        }
+        else {
+          ggplotly(autoplot(oil_freq.tr) + autolayer(Com_NN)) 
+        }
+      }
+      else if (input$FC_Model == "Com_Best"){
+        if (input$val) {
+          cbestgg <- ggplot() +
+                     autolayer(Com_Best, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(cbestgg)
+        }
+        else {
+          ggplotly(autoplot(oil_freq.tr) + autolayer(Com_Best)) 
+        }
+      }
     })
-  }
-)
+    output$residuals = renderPlot({
+      if (input$FC_Model == "Naive") {
+        checkresiduals(Naive, test=F)
+      }
+      else if (input$FC_Model == "ETS") {
+        checkresiduals(ETS, test=F)
+      }
+      else if (input$FC_Model == "STLM") {
+        checkresiduals(STLM, test=F)
+      }
+      else if (input$FC_Model == "Base_Arima") {
+        checkresiduals(Base_Arima, test=F)
+      }
+      else if (input$FC_Model == "Base_Arima_Sns") {
+        checkresiduals(Base_Arima_Sns, test=F)
+      }
+      else if (input$FC_Model == "Fourier_Reg") {
+        checkresiduals(Fourier_Reg, test=F)
+      }
+      else if (input$FC_Model == "Fourier_Reg_Sns") {
+        checkresiduals(Fourier_Reg_Sns, test=F)
+      }
+      else if (input$FC_Model == "Fourier_Period") {
+        checkresiduals(Fourier_Period, test=F)
+      }
+      else if (input$FC_Model == "TBATS") {
+        checkresiduals(TBATS, test=F)
+      }
+      else if (input$FC_Model == "MSTS_Sns") {
+        checkresiduals(MSTS_Sns, test=F)
+      }
+      else if (input$FC_Model == "NN") {
+        checkresiduals(NN, test=F)
+      }
+      else if (input$FC_Model == "NN_Sns") {
+        checkresiduals(NN_Sns, test=F)
+      }
+    })
+    output$decom = renderPlot(plot(decom_oil))
+    output$math = renderUI({
+      if (input$FC_Model == "Naive") {
+        shiny::withMathJax(
+          helpText('Simple Baseline Forecast:$$y_{t+h|t} = y_t$$',
+                   br(),
+                   'Our $$y_t = 9496$$',
+                   br(),
+                   'Therefore, for any forecast:$$y_{t+h} = 9496$$')
+                          )
+      }
+      else if (input$FC_Model == "ETS") {
+        shiny::withMathJax(
+          helpText('ETS(A,N,N) Model: $$Measurement: y_t = \\ell_{t-1} + \\varepsilon_t$$',
+                   '$$State Equation: \\ell_t = \\ell_{t-1} + \\alpha\\varepsilon_t$$',
+                   'Our initial state \\(\\ell_t \\approx 8754\\) and \\(\\alpha = .4107\\)'))
+      }
+        })
+      })
 ```
 

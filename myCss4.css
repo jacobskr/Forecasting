@@ -12,8 +12,13 @@ body slides > slide
 {
   height: 800px;
   width: 1600px;
-  margin-top: -400px;    /* half of height */
-  margin-left: -800px;
+  margin-top: -10px;    /* half of height */
+  margin-left: -10px;
+}
+
+
+.MathJax {
+font-size: 36em !important;
 }
 
 <style>
@@ -28,7 +33,3 @@ body slides > slide
     -moz-columns: 3 100px;
   }
 </style>
-
-.MathJax {
-font-size: 36em !important;
-}
