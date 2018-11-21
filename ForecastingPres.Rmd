@@ -482,7 +482,12 @@ shinyApp(
                    br(),
                    '\\(\\theta_q(B)=(1+\\theta_qB+...+\\theta_qB^q)\\) is the non-seasonal MA operator of order q;',
                    br(),
-                   '\\(\\Theta_Q(B^S)=(1+\\Theta_1B^S+...+\\Theta_QB^{SQ})\\) is the seasonal MA operator of order Q;'))
+                   '\\(\\Theta_Q(B^S)=(1+\\Theta_1B^S+...+\\Theta_QB^{SQ})\\) is the seasonal MA operator of order Q;',
+                   br(),
+                   br(),
+                   'Our Model: ARIMA(4,1,1)(1,1,0)[52]:',
+                   br(),
+                   '$$$(1+)'))
       }
         })
       })
