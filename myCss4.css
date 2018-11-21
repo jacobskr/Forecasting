@@ -12,14 +12,12 @@ body slides > slide
 {
   height: 800px;
   width: 1600px;
-  margin-top: -10px;    /* half of height */
-  margin-left: -10px;
+  margin-top: -400px;    /* half of height */
+  margin-left: -800px;
 }
 
 
-.MathJax {
-font-size: 36em !important;
-}
+
 
 <style>
   .col2 {

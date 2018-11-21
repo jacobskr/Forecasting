@@ -6,8 +6,8 @@ output:
   ioslides_presentation:
     css: myCss4.css
 autosize: TRUE
-width: 1440
-height: 1200
+#width: 1440
+#height: 1200
 
 ---
 ```{r, echo=FALSE, eval=TRUE,message=FALSE,warning=FALSE}
@@ -21,11 +21,11 @@ require(fpp2)
 require(ggplot2)
 require(plotly)
 #require(digest)
-dta <- read.csv("C:/Users/User/Desktop/Forecasting/Group_Project/US_OIL.csv")
+dta <- read.csv("US_OIL.csv")
 dta2 <- tail(dta, 260)[,2]
 
 #seasons data
-seasons <- read.csv("C:/Users/User/Desktop/Forecasting/Group_Project/seasons.csv")
+seasons <- read.csv("seasons.csv")
 seasons <- tail(seasons, 260)
 seasons <- seasons[,c(2,3,4)]
 seasons.tr <- seasons[1:208,]
@@ -77,7 +77,8 @@ Weekly U.S Product Supplied of Finished Motor Gasoline
 </div>
 
 ```{r, echo=FALSE, eval=TRUE}
-oil <- autoplot(ts(dta$barrels, start=1991 +(38/7)/365.25, frequency = 365.25/7),           ylab = "Barrels (Thousands)", main = "U.S. Gasoline Production")
+oil <- autoplot(ts(dta$barrels, start=1991 +(38/7)/365.25, frequency = 365.25/7),
+                ylab = "Barrels (Thousands)", main = "U.S. Gasoline Production")
 oil <- ggplotly(oil)
 # htmlwidgets::saveWidget(as_widget(oil), file = "oil.html")
 ```

@@ -20,6 +20,9 @@ seasons <- seasons[,c(2,3,4)]
 seasons.tr <- seasons[1:208,]
 seasons.val <- seasons[209:260,]
 
+seasonsfc <- read.csv("seasonsfc.csv")
+seasonsfc <- seasonsfc[,c(2,3,4)]
+
 # True frequency training/validation sets
 oil_freq <- ts(dta2, frequency = 365.25/7, start=2014-(46/365.25))
 oil_freq.tr <- ts(oil_freq[1:208], freq=365.25/7, start=2014-(46/365.25))
@@ -346,16 +349,17 @@ autoplot(oil_freq.val) + autolayer(comb_best)
 
 
 #reate prediction intervals - a bit better
-tst0 <- cbind(fc_stlm$lower, fc_stlm$upper) * (1/2)
-tst1 <- cbind(fc_tbats.msts$lower, fc_tbats.msts$upper) * (1/2)
-tst2 <- cbind(fc_seasons$lower, fc_seasons$upper) * (1/6)
-tst3 <- cbind(fc_freg$lower, fc_freg$upper) * (1/6)
-tst4 <- cbind(fc_nn.xregs$lower, fc_nn.xregs$upper) * (1/6)
-#tst5 <- cbind(fc_comb$lower, fc_comb$upper) * (1/6)
-combined_tst <- cbind((tst0[,1]+tst1[,1]),
-                      (tst0[,2]+tst1[,2]),
-                      (tst0[,3]+tst1[,3]),
-                      (tst0[,4]+tst1[,4]))
+tst0 <- data.frame((cbind(fc_stlm$lower, fc_stlm$upper) * (1/6)))
+tst1 <-  data.frame((cbind(fc_base$lower, fc_base$upper) * (1/6)))
+tst2 <-  data.frame((cbind(fc_fper$lower, fc_fper$upper) * (1/6)))
+tst3 <-  data.frame((cbind(fc_seasons$lower, fc_seasons$upper) * (1/6)))
+tst4 <-  data.frame((cbind(fc_nn.xregs$lower, fc_nn.xregs$upper) * (1/6)))
+tst5 <-  data.frame((cbind(fc_arima.msts$lower, fc_arima.msts$upper) * (1/6)))
+combined_tst <- cbind((tst0[,1]+tst1[,1]+tst2[,1]+tst3[,1]+tst4[,1]+tst5[,1]),
+                      (tst0[,2]+tst1[,2]+tst2[,2]+tst3[,2]+tst4[,2]+tst5[,2]),
+                      (tst0[,3]+tst1[,3]+tst2[,3]+tst3[,3]+tst4[,3]+tst5[,3]),
+                      (tst0[,4]+tst1[,4]+tst2[,4]+tst3[,4]+tst4[,4]+tst5[,4]))
+
 int <- list()
 int$mean <- comb_best
 int$interval <- combined_tst
@@ -370,22 +374,59 @@ fit_stlm_for <- stlm(oil_freq, model=fit_stlm)
 fc_stlm_for <- forecast(fit_stlm_for, h=26)
 autoplot(oil_freq) + autolayer(fc_stlm_for)
 
-fit_tbats_for <- tbats(oil_freq, model=fit_tbats.msts)
-fc_tbats_for <- forecast(fit_tbats_for, h=26)
-autoplot(oil_freq) + autolayer(fc_tbats_for)
+fit_base_for <- Arima(oil_freq, model = fit_base)
+fc_base_for <- forecast(fit_base_for, h=26)
+autoplot(oil_freq) + autolayer(fc_base_for)
 
-autoplot(fc_tbats_for$mean) + autolayer(fc_stlm_for$mean)
+fit_fper_for <- Arima(oil_freq,
+                      model = bestfit1$fit,
+                      xreg=cbind(
+                        fourier(ts(oil_freq, frequency=54), K=bestfit1$i),
+                        fourier(ts(oil_freq, frequency=72), K=bestfit1$j),
+                        fourier(ts(oil_freq, frequency=30.85714286), K=bestfit1$p)))
 
-comb_best_for <- (fc_tbats_for[["mean"]] + fc_stlm_for[["mean"]])/2
+fc_fper_for <- forecast(fit_fper_for, h=26,
+                        xreg=cbind(
+                          fourier(ts(oil_freq, frequency=54), K=bestfit1$i, h=26),
+                          fourier(ts(oil_freq, frequency=72), K=bestfit1$j, h=26),
+                          fourier(ts(oil_freq, frequency=30.85714286), K=bestfit1$p, h=26)))
+autoplot(oil_freq) + autolayer(fc_fper_for)
+
+fit_seasons_for <- Arima(oil_freq, xreg = seasons, model = fit_seasons)
+fc_seasons_for <- forecast(fit_seasons_for, xreg=seasonsfc, h=26)
+autoplot(oil_freq) + autolayer(fc_base_for)
+
+fit_arima.msts_for <- Arima(oil_msts[, "barrels"], xreg=oil_msts[, c(2,3,4)], model = fit_arima.msts)
+fc_arima.msts_for <- forecast(fit_arima.msts_for, xreg=seasonsfc, h=26)
+autoplot(oil_freq) + autolayer(fc_arima.msts_for)
+
+fit_nn.xregs_for <- nnetar(oil_freq, xreg = seasons)
+fc_nn.xregs_for <- forecast(fit_nn.xregs_for, xreg = seasonsfc, PI=T, h=26)
+autoplot(oil_freq) + autolayer(fc_nn.xregs_for)
+
+
+autoplot(fc_stlm_for$mean) + autolayer(fc_base_for$mean) +
+  autolayer(fc_fper_for$mean) + autolayer(fc_seasons_for$mean) +
+  autolayer(fc_arima.msts_for$mean) + autolayer(fc_nn.xregs_for$mean)
+
+
+comb_best_for <- (fc_stlm_for[["mean"]] + fc_base_for[["mean"]] +
+                    fc_fper_for[["mean"]] + fc_seasons_for[["mean"]]+ 
+                    fc_arima.msts_for[["mean"]] + fc_nn.xregs_for[["mean"]])/6
 autoplot(oil_freq.val) + autolayer(comb_best_for)
+autoplot(oil_freq) + autolayer(comb_best_for)
 
 #Confidence intervals for forward forecast
-tst.for0 <- cbind(fc_stlm_for$lower, fc_stlm_for$upper) * (1/2)
-tst1.for1 <- cbind(fc_tbats_for$lower, fc_tbats_for$upper) * (1/2)
-combined_tst.for <- cbind((tst.for0[,1]+tst1.for1[,1]),
-                          (tst.for0[,2]+tst1.for1[,2]),
-                          (tst.for0[,3]+tst1.for1[,3]),
-                          (tst.for0[,4]+tst1.for1[,4]))
+tst.for0 <- cbind(fc_stlm_for$lower, fc_stlm_for$upper) * (1/6)
+tst.for1 <- cbind(fc_base_for$lower, fc_base_for$upper) * (1/6)
+tst.for2 <- cbind(fc_fper_for$lower, fc_fper_for$upper) * (1/6)
+tst.for3 <- cbind(fc_seasons_for$lower, fc_seasons_for$upper) * (1/6)
+tst.for4 <- cbind(fc_arima.msts_for$lower, fc_arima.msts_for$upper) * (1/6)
+tst.for5 <- cbind(fc_nn.xregs_for$lower, fc_nn.xregs_for$upper) * (1/6)
+combined_tst.for <- cbind((tst.for0[,1]+tst.for1[,1]+tst.for2[,1]+tst.for3[,1]+tst.for4[,1]+tst.for5[,1]),
+                          (tst.for0[,2]+tst.for1[,2]+tst.for2[,2]+tst.for3[,2]+tst.for4[,2]+tst.for5[,2]),
+                          (tst.for0[,3]+tst.for1[,3]+tst.for2[,3]+tst.for3[,3]+tst.for4[,3]+tst.for5[,3]),
+                          (tst.for0[,4]+tst.for1[,4]+tst.for2[,4]+tst.for3[,4]+tst.for4[,4]+tst.for5[,4]))
 int.for <- list()
 int.for$mean <- comb_best_for
 int.for$interval <- combined_tst.for
@@ -394,3 +435,9 @@ colnames(int.for$interval) <- c('Lo 80', 'Lo 95', 'Hi 80', 'Hi 95')
 autoplot(oil_freq.val) + autolayer(comb_best_for) +
   geom_ribbon(data = int.for$mean, aes(ymin = int.for$interval[,2], ymax = int.for$interval[,4]), fill = 'blue', alpha = .2) +
   geom_ribbon(data = int.for$mean, aes(ymin = int.for$interval[,1], ymax = int.for$interval[,3]), fill= 'red', alpha = .2)
+
+autoplot(oil_freq) + autolayer(comb_best_for) +
+  geom_ribbon(data = int.for$mean, aes(ymin = int.for$interval[,2], ymax = int.for$interval[,4]), fill = 'blue', alpha = .2) +
+  geom_ribbon(data = int.for$mean, aes(ymin = int.for$interval[,1], ymax = int.for$interval[,3]), fill= 'red', alpha = .2)
+
+
