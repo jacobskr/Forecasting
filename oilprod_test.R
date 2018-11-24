@@ -319,27 +319,30 @@ COMB.rmse_ac <- accuracy(comb_rmse, oil_freq.val)
 COMB.best_ac = accuracy(comb_best, oil_freq.val)
 #COMB.simp_ac <- accuracy(comb_simp, oil_freq.val)
 
-sort(c(NAIVE_ac = accuracy(fc_naive, oil_freq.val)["Test set","RMSE"],
-  ETS_ac = accuracy(fc_ets, oil_freq.val)["Test set","RMSE"],
-  stlm_ac = accuracy(fc_stlm, oil_freq.val)["Test set","RMSE"],
-  ARIMA.base_ac = accuracy(fc_base, oil_freq.val)["Test set","RMSE"],
-  ARIMA.freg_ac = accuracy(fc_freg, oil_freq.val)["Test set","RMSE"],
-  ARIMA.fper_ac = accuracy(fc_fper, oil_freq.val)["Test set","RMSE"],
-  ARIMA.sns_ac = accuracy(fc_seasons, oil_freq.val)["Test set","RMSE"],
-  ARIMA.comb_ac = accuracy(fc_comb, oil_freq.val)["Test set","RMSE"],
-  ARIMA.msts_ac =  accuracy(fc_arima.msts, oil_freq.val)["Test set","RMSE"],
-  TBATS_ac = accuracy(fc_tbats.msts, oil_freq.val)["Test set","RMSE"],
-  NNETAR_ac = accuracy(fc_nn, oil_freq.val)["Test set","RMSE"],
-  NNETAR.sns_ac = accuracy(fc_nn.xregs, oil_freq.val)["Test set","RMSE"],
-  #ELM_ac = accuracy(fc_elm, oil_freq.val)["Test set","RMSE"],
-  #ELM.sn_ac = accuracy(fc_elm.xreg, oil_freq.val)["Test set","RMSE"],
-  COMB.fourier_ac = accuracy(comb_fourier, oil_freq.val)["Test set","RMSE"],
-  COMB.msts_ac = accuracy(comb_msts, oil_freq.val)["Test set","RMSE"],
-  COMB.nn_ac = accuracy(comb_nn, oil_freq.val)["Test set","RMSE"],
-  COMB.season_ac = accuracy(comb_season, oil_freq.val)["Test set","RMSE"],
-  #COMB.simp_ac = accuracy(comb_simp, oil_freq.val)["Test set","RMSE"])
-  COMB.rmse_ac = accuracy(comb_rmse, oil_freq.val)["Test set","RMSE"],
-  COMB.best_ac = accuracy(comb_best, oil_freq.val)["Test set","RMSE"]
+asd <- cbind('NAIVE', accuracy(fc_naive, oil_freq.val)["Test set","RMSE"])
+
+
+RMSEs <- sort(c(NAIVE_ac = accuracy(fc_naive, oil_freq.val)["Test set","RMSE"],
+    ETS_ac = accuracy(fc_ets, oil_freq.val)["Test set","RMSE"],
+    stlm_ac = accuracy(fc_stlm, oil_freq.val)["Test set","RMSE"],
+    ARIMA.base_ac = accuracy(fc_base, oil_freq.val)["Test set","RMSE"],
+    ARIMA.freg_ac = accuracy(fc_freg, oil_freq.val)["Test set","RMSE"],
+    ARIMA.fper_ac = accuracy(fc_fper, oil_freq.val)["Test set","RMSE"],
+    ARIMA.sns_ac = accuracy(fc_seasons, oil_freq.val)["Test set","RMSE"],
+    ARIMA.comb_ac = accuracy(fc_comb, oil_freq.val)["Test set","RMSE"],
+    ARIMA.msts_ac =  accuracy(fc_arima.msts, oil_freq.val)["Test set","RMSE"],
+    TBATS_ac = accuracy(fc_tbats.msts, oil_freq.val)["Test set","RMSE"],
+    NNETAR_ac = accuracy(fc_nn, oil_freq.val)["Test set","RMSE"],
+    NNETAR.sns_ac = accuracy(fc_nn.xregs, oil_freq.val)["Test set","RMSE"],
+    #ELM_ac = accuracy(fc_elm, oil_freq.val)["Test set","RMSE"],
+    #ELM.sn_ac = accuracy(fc_elm.xreg, oil_freq.val)["Test set","RMSE"],
+    COMB.fourier_ac = accuracy(comb_fourier, oil_freq.val)["Test set","RMSE"],
+    COMB.msts_ac = accuracy(comb_msts, oil_freq.val)["Test set","RMSE"],
+    COMB.nn_ac = accuracy(comb_nn, oil_freq.val)["Test set","RMSE"],
+    COMB.season_ac = accuracy(comb_season, oil_freq.val)["Test set","RMSE"],
+    #COMB.simp_ac = accuracy(comb_simp, oil_freq.val)["Test set","RMSE"])
+    #COMB.rmse_ac = accuracy(comb_rmse, oil_freq.val)["Test set","RMSE"],
+    COMB.best_ac = accuracy(comb_best, oil_freq.val)["Test set","RMSE"]
 ))
 
 #winner! - everything below here needs updating

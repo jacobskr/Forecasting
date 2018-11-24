@@ -203,9 +203,12 @@ shinyApp(
                                            column(12, plotlyOutput("fcmodel")),
                                            column(12, plotOutput("residuals")))),
                                 tabPanel("Models/Notes",
-                                         fluidRow(column(12,
-                                                  column(6, uiOutput("math")),
-                                                  column(6))))
+                                         fluidRow(column(12, align = 'center',
+                                                         style='margin-bottom:10px;border:1px solid; padding: 10px;',
+                                                         uiOutput("math")),
+                                                  column(12, imageOutput("model")))),
+                                tabPanel('RMSEs',
+                                         tableOutput("RMSE"), align = 'center')
   
                                          )
                             )
@@ -458,7 +461,7 @@ shinyApp(
                    '$$State Equation: \\ell_t = \\ell_{t-1} + \\alpha\\varepsilon_t$$',
                    'Our initial state \\(\\ell_t \\approx 8754\\) and \\(\\alpha = .4107\\):',
                    'Therefore, $$Measurement: y_t = 8754 + \\ell_t$$',
-                   '$$State Equation: \\y_t = \\8754 + .4107\\varepsilon_t$$'))
+                   '$$State Equation: \\varepsilon_{t-1} = 8754 + .4107\\varepsilon_t$$'))
       }
       else if (input$FC_Model == "STLM") {
         shiny::withMathJax(
@@ -468,7 +471,7 @@ shinyApp(
         shiny::withMathJax(
           helpText('ARIMA(4,1,1)(1,1,0)[52]',
                    br(),
-                   'General Notation of Arima(p,d,q)(P,D,Q)[S]: $$\\Phi_P(B^S)\\phi_p(B)\\nabla^D_s\\nabla^dy_t = 
+                   'General Notation of Arima(p,d,q)(P,D,Q)[S]: $$\\Phi_P(B^S)\\phi_p(B)\\nabla^d\\nabla^D_sy_t = 
                    \\theta_q(B)\\Theta_Q(B^S)e_t$$',
                    'Where:',
                    br(),
@@ -487,9 +490,104 @@ shinyApp(
                    br(),
                    'Our Model: ARIMA(4,1,1)(1,1,0)[52]:',
                    br(),
-                   '$$$(1+)'))
+                   '$$(1+0.2632B^1+0.1925B^2+0.1664B^3-0.0857B^4)(1+0.5065B^{52})(1-B)(1-B^{52})y_t=(1+0.5667B)e_t$$'))
+      }
+      else if (input$FC_Model == "Base_Arima_Sns") {
+        shiny::withMathJax(
+          helpText('Regression model with seasonal dummy variables and ARIMA(2,1,3)(1,0,0)[52] Errors',
+                   br(),
+                   br(),
+                   'Our coefficeints: $$fall - Base Level$$',
+                   '$$winter = -196.1021$$',
+                   '$$spring = 242.4069$$',
+                   '$$summer = 352.8888$$',
+                   'Can logically think of our model as: 
+                   $$y_t=-196.1021(winter)_t+242.4069(spring)_t+352.8888(summer)_t+\\eta_t$$',
+                   '\\(\\eta_t\\) is an ARIMA(2,1,3)(1,0,0)[52] process'))
+      }
+      else if (input$FC_Model == "Fourier_Reg") {
+        shiny::withMathJax(
+          helpText('Regression with optimal Fourier regressors, ARIMA(0,1,1) Errors',
+                   br(),
+                   br(),
+                   'Number of Fourier regressors chosen by optimizing AICc',
+                   br(),
+                   br(),
+                   'Optimal AICc occured at K=5',
+                   '$$y_t = bt + \\sum_{j=1}^{5} \\left[ \\alpha_j\\sin\\left(\\frac{2\\pi j t}{52.18}\\right) +       
+                   \\beta_j\\cos\\left(\\frac{2\\pi j t}{52.18}\\right) \\right] + \\eta_t$$',
+                   '\\(\\eta_t\\) is an ARIMA(0,1,1) process'))
+      }
+      else if (input$FC_Model == "Fourier_Reg_Sns") {
+        shiny::withMathJax(
+          helpText('Regression with optimal Fourier regressors and seasonal dummy variables', 
+                   'ARIMA(0,1,1) Errors',
+                   br(),
+                   br(),
+                   'Number of Fourier regressors chosen by optimizing AICc',
+                   br(),
+                   br(),
+                   'Optimal AICc occured at K=4',
+                   'Our coefficeints: $$fall - Base Level$$',
+                   '$$winter = 105.1668$$',
+                   '$$spring = 421.4939$$',
+                   '$$summer = 188.3518$$',
+                   '$$y_t = bt + \\sum_{j=1}^{4} \\left[ \\alpha_j\\sin\\left(\\frac{2\\pi j t}{52.18}\\right) +       
+                   \\beta_j\\cos\\left(\\frac{2\\pi j t}{52.18}\\right) \\right] +
+                   105.1668(winter)_t + 421.4936(spring)_t + 188.3518(summer)_t + \\eta_t$$',
+                   '\\(\\eta_t\\) is an ARIMA(0,1,1) process'))
+      }
+      else if (input$FC_Model == "Fourier_Period") {
+        shiny::withMathJax(
+          helpText('Regression using highest spectral density periods', 
+                   'ARIMA(0,1,1) Errors',
+                   br(),
+                   br(),
+                   'Periods = (54, 72, 30.85714)',
+                   br(),
+                   br(),
+                   'Number of Fourier regressors chosen by optimizing AICc',
+                   br(),
+                   br(),
+                   'Optimal AICc occured at K=(3,1,3)',
+                   '$$y_t = bt + \\sum_{j=1}^{3} \\left[ \\alpha_j^{54}\\sin\\left(\\frac{2\\pi j t}{54}\\right) +       
+                   \\beta_j^{54}\\cos\\left(\\frac{2\\pi j t}{54}\\right) \\right] +
+                   \\sum_{j=1}^{3} \\left[ \\alpha_j^{30.85714}\\sin\\left(\\frac{2\\pi j t}{30.85714}\\right) +       
+                   \\beta_j^{30.85714}\\cos\\left(\\frac{2\\pi j t}{30.85714}\\right) \\right]$$',
+                   '$$- 184.0041\\sin\\left(\\frac{2\\pi t}{72}\\right) + 58.0609\\cos\\left(\\frac{2\\pi t}{72}\\right)
+                   + \\eta_t$$',
+                   '\\(\\eta_t\\) is an ARIMA(0,1,1) process'))
+      }
+      else if (input$FC_Model == "TBATS") {
+        shiny::withMathJax(
+          helpText('TBATS(1, {0,0}, -, {<4.35,1>, <13.04,1>, <52.18,3>})',
+                   br(),
+                   br(),
+                   'General Notation: \\(\\text{TBATS}(\\omega, (p,q), \\phi, <m_1,k_1>...<m_j,k_j>)\\)',
+                   '$$\\omega = \\text{Box-Cox parameter}$$',
+                   '$$(p,q) = \\text{An ARMA(p,q) process}$$',
+                   '$$\\phi = \\text{The damping parameter}$$',
+                   '$$<m_j,k_j> = \\text{<Seasonal period, Fourier Transforms>}$$',
+                   'Our \\(\\omega = 1\\) is doing nothing, no Arma process, or damping parameter.',
+                   br(),
+                   'The monthly seasonality has 1 Fourier transform',
+                   br(),
+                   'The quartly seasonality has 1 Fourier transform',
+                   br(),
+                   'The yearly seasonality has 3 Fourier transforms'))
       }
         })
-      })
+    output$model = renderImage({
+      # When input$n is 3, filename is ./images/image3.jpeg
+      filename <- normalizePath(file.path(getwd(),
+                                paste('jpeg/', input$FC_Model, '.jpg', sep='')))
+   
+      # Return a list containing the filename and alt text
+      list(src = filename,
+           alt = input$FC_Model)
+  
+    }, deleteFile = FALSE)
+    output$RMSE = renderTable({RMSEs[order(RMSEs$RMSE),]})
+  })
 ```
 

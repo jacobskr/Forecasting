@@ -210,7 +210,25 @@ COMB.season_ac <- accuracy(comb_season, oil_freq.val)
 COMB.best_ac = accuracy(comb_best, oil_freq.val)
 
 
-RMSEs <- sort(c(NAIVE_ac = accuracy(fc_naive, oil_freq.val)["Test set","RMSE"],
+colrmse <- c('Naive',
+           'ETS', 
+           'STLM',
+           'Base_Arima',
+           'Base_Arima_Sns',
+           'Fourier_Reg',
+           'Fourier_Reg_Sns',
+           'Fourier_Period', 
+           'MSTS_Sns',
+           'TBATS',
+           'NN',
+           'NN_Sns',
+           'Com_MSTS',
+           'Com_Fourier',
+           'Com_Sns',
+           'Com_NN',
+           'Com_Best')
+
+RMSEs <- data.frame(c(NAIVE_ac = accuracy(fc_naive, oil_freq.val)["Test set","RMSE"],
                  ETS_ac = accuracy(fc_ets, oil_freq.val)["Test set","RMSE"],
                  stlm_ac = accuracy(fc_stlm, oil_freq.val)["Test set","RMSE"],
                  ARIMA.base_ac = accuracy(fc_base, oil_freq.val)["Test set","RMSE"],
@@ -227,6 +245,9 @@ RMSEs <- sort(c(NAIVE_ac = accuracy(fc_naive, oil_freq.val)["Test set","RMSE"],
                  COMB.nn_ac = accuracy(comb_nn, oil_freq.val)["Test set","RMSE"],
                  COMB.season_ac = accuracy(comb_season, oil_freq.val)["Test set","RMSE"],
                  COMB.best_ac = accuracy(comb_best, oil_freq.val)["Test set","RMSE"]))
+colnames(RMSEs) <- 'RMSE'
+RMSEs['Model'] <- colrmse
+RMSEs[order(RMSEs$RMSE),]
 
 #Create Comb Best forecast and prediction intervals for validation
 tst0 <- data.frame((cbind(fc_stlm$lower, fc_stlm$upper) * (1/6)))
