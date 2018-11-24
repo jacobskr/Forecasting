@@ -191,9 +191,9 @@ shinyApp(
                                                        "TBATS", "MSTS_Sns", "NN", "NN_Sns",
                                                        "Com_MSTS", "Com_Fourier", "Com_Sns",
                                                        "Com_NN", "Com_Best")),
-                  checkboxInput(inputId = "val",
-                                label = "Show Validation Data",
-                                value = FALSE)),
+                              checkboxInput(inputId = "val",
+                                            label = "Show Validation Data",
+                                            value = FALSE)),
                   mainPanel(
                     tabsetPanel(type = 'tabs',
                                 tabPanel("Decomposition",
@@ -208,8 +208,12 @@ shinyApp(
                                                          uiOutput("math")),
                                                   column(12, imageOutput("model")))),
                                 tabPanel('RMSEs',
-                                         tableOutput("RMSE"), align = 'center')
-  
+                                         tableOutput("RMSE"), align = 'center'),
+                                tabPanel('Final Model',
+                                         numericInput(inputId = 'weeks', 
+                                                      label = "Forecast Weeks",
+                                                      value = 26, min = 0, max = 104, step = 1),
+                                         plotlyOutput("final"))
                                          )
                             )
                   )
@@ -588,6 +592,71 @@ shinyApp(
   
     }, deleteFile = FALSE)
     output$RMSE = renderTable({RMSEs[order(RMSEs$RMSE),]})
+    output$final = renderPlotly({
+      if (input$val) {
+       bval <- autoplot(oil_freq.tr) + autolayer(comb_best) +
+                  geom_ribbon(data = int$mean, aes(ymin = int$interval[,2], ymax = int$interval[,4]),
+                              fill = 'blue', alpha = .2) +
+                  geom_ribbon(data = int$mean, aes(ymin = int$interval[,1], ymax = int$interval[,3]),
+                              fill= 'red', alpha = .2)
+       ggplotly(bval)
+      }
+      else if (!input$val) {
+        fit_stlm_for <- stlm(oil_freq, model=fit_stlm)
+        fc_stlm_for <- forecast(fit_stlm_for, h=input$weeks)
+        
+        fit_base_for <- Arima(oil_freq, model = fit_base)
+        fc_base_for <- forecast(fit_base_for, h=input$weeks)
+        
+        fit_fper_for <- Arima(oil_freq,
+                              model = shinyfour,
+                              xreg=cbind(
+                                fourier(ts(oil_freq, frequency=54), K=3),
+                                fourier(ts(oil_freq, frequency=72), K=1),
+                                fourier(ts(oil_freq, frequency=30.85714286), K=3)))
+        
+        fc_fper_for <- forecast(fit_fper_for, h=input$weeks,
+                                xreg=cbind(
+                                  fourier(ts(oil_freq, frequency=54), K=3, h=input$weeks),
+                                  fourier(ts(oil_freq, frequency=72), K=1, h=input$weeks),
+                                  fourier(ts(oil_freq, frequency=30.85714286), K=3, h=input$weeks)))
+        
+        fit_seasons_for <- Arima(oil_freq, xreg = seasons, model = fit_seasons)
+        fc_seasons_for <- forecast(fit_seasons_for, xreg=seasonsfc, h=input$weeks)
+        
+        fit_arima.msts_for <- Arima(oil_msts[, "barrels"], xreg=oil_msts[, c(2,3,4)], model = fit_arima.msts)
+        fc_arima.msts_for <- forecast(fit_arima.msts_for, xreg=seasonsfc, h=input$weeks)
+        
+        fit_nn.xregs_for <- nnetar(oil_freq, xreg = seasons)
+        fc_nn.xregs_for <- forecast(fit_nn.xregs_for, xreg = seasonsfc, PI=T, h=input$weeks)
+        
+        comb_best_for <- (fc_stlm_for[["mean"]] + fc_base_for[["mean"]] +
+                            fc_fper_for[["mean"]] + fc_seasons_for[["mean"]]+ 
+                            fc_arima.msts_for[["mean"]] + fc_nn.xregs_for[["mean"]])/6
+        tst.for0 <- cbind(fc_stlm_for$lower, fc_stlm_for$upper) * (1/6)
+        tst.for1 <- cbind(fc_base_for$lower, fc_base_for$upper) * (1/6)
+        tst.for2 <- cbind(fc_fper_for$lower, fc_fper_for$upper) * (1/6)
+        tst.for3 <- cbind(fc_seasons_for$lower, fc_seasons_for$upper) * (1/6)
+        tst.for4 <- cbind(fc_arima.msts_for$lower, fc_arima.msts_for$upper) * (1/6)
+        tst.for5 <- cbind(fc_nn.xregs_for$lower, fc_nn.xregs_for$upper) * (1/6)
+        combined_tst.for <- cbind((tst.for0[,1]+tst.for1[,1]+tst.for2[,1]+tst.for3[,1]+tst.for4[,1]+tst.for5[,1]),
+                                  (tst.for0[,2]+tst.for1[,2]+tst.for2[,2]+tst.for3[,2]+tst.for4[,2]+tst.for5[,2]),
+                                  (tst.for0[,3]+tst.for1[,3]+tst.for2[,3]+tst.for3[,3]+tst.for4[,3]+tst.for5[,3]),
+                                  (tst.for0[,4]+tst.for1[,4]+tst.for2[,4]+tst.for3[,4]+tst.for4[,4]+tst.for5[,4]))
+        int.for <- list()
+        int.for$mean <- comb_best_for
+        int.for$interval <- combined_tst.for
+        colnames(int.for$interval) <- c('Lo 80', 'Lo 95', 'Hi 80', 'Hi 95')
+        
+        bfor <- autoplot(oil_freq) + autolayer(comb_best_for) +
+                  geom_ribbon(data = int.for$mean, aes(ymin = int.for$interval[,2], ymax = int.for$interval[,4]),
+                              fill = 'blue', alpha = .2) +
+                  geom_ribbon(data = int.for$mean, aes(ymin = int.for$interval[,1], ymax = int.for$interval[,3]),
+                              fill= 'red', alpha = .2)
+        ggplotly(bfor)
+
+      }
+    })
   })
 ```
 
