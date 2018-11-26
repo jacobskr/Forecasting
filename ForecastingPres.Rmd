@@ -38,11 +38,12 @@ oil_freq.val <- ts(oil_freq[(length(oil_freq)-51):length(oil_freq)],
                    start=end(oil_freq.tr)+(7/365.25))
 
 
-#Rounded frequency training/validation sets
+# Rounded frequency training/validation sets
 oil_round <- ts(dta2, freq=52, start = c(2013, 46))
 oil_round.tr <- ts(oil_freq[1:208], freq=52, start=c(2013, 46))
 oil_round.val <- ts(oil_freq[209:260], freq=52, start=c(2017, 46))
 
+# MSTS frequency datasets
 wkly <- 365.25 / 7
 mthly <- wkly / 12
 qtrly <- wkly / 4
@@ -211,7 +212,14 @@ shinyApp(
                                            column(12, imageOutput("model")),
                                            column(12,
                                                   column(6, plotOutput('spec')),
-                                                  column(6, imageOutput('periods'))))),
+                                                  column(6,
+                                                         style='margin-top: 150px; padding: 10px;',
+                                                         imageOutput('periods'))))),
+                                tabPanel('Code',
+                                         checkboxInput('oil_data',
+                                                       label = "Show datasets code",
+                                                       value = TRUE),
+                                         imageOutput("code")),
                                 tabPanel('RMSEs',
                                          tableOutput("RMSE"), align = 'center'),
                                 tabPanel('Final Model',
@@ -609,7 +617,13 @@ shinyApp(
         list(src = filename,
              alt = '')
       }
-    })
+      else {
+        filename <- normalizePath(file.path(getwd(),
+                                paste('jpeg/', 'blank', '.jpg', sep='')))
+        list(src = filename,
+             alt = '')
+      }
+    }, deleteFile = FALSE)
     output$RMSE = renderTable({RMSEs[order(RMSEs$RMSE),]})
     output$final = renderPlotly({
       if (input$val) {
@@ -646,6 +660,20 @@ shinyApp(
         }
       }
     })
+    output$code = renderImage({
+      if (input$oil_data) {
+        filename <- normalizePath(file.path(getwd(),
+                                paste('jpeg/', 'data', '_code.jpg', sep='')))
+        list(src = filename,
+            alt = input$FC_Model)
+      }
+      else {
+        filename <- normalizePath(file.path(getwd(),
+                                paste('jpeg/', input$FC_Model, '_code.jpg', sep='')))
+        list(src = filename,
+            alt = input$FC_Model)
+      }
+    }, deleteFile = FALSE)
   })
 ```
 
