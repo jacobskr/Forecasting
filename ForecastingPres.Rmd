@@ -176,7 +176,7 @@ require(plotly)
 require(shiny)
 
 
-source('oilprod.R', local = TRUE)
+#source('oilprod.R', local = TRUE)
 
 shinyApp(
   ui <- fluidPage(theme='myCss4.css',
@@ -195,7 +195,7 @@ shinyApp(
                               checkboxInput(inputId = "val",
                                             label = "Show Validation Data",
                                             value = FALSE)),
-                  mainPanel(
+                  mainPanel(width = 10,
                     tabsetPanel(type = 'tabs',
                                 tabPanel("Decomposition",
                                          plotOutput("decom", height = '800px')),
@@ -204,13 +204,20 @@ shinyApp(
                                            column(12, plotlyOutput("fcmodel")),
                                            column(12, plotOutput("residuals")))),
                                 tabPanel("Models/Notes",
-                                         fluidRow(column(12, align = 'center',
-                                                         style='margin-bottom:10px;border:1px solid; padding: 10px;',
-                                                         uiOutput("math")),
-                                                  column(12, imageOutput("model")))),
+                                         fluidRow(
+                                           column(12, align = 'center',
+                                                  style='margin-bottom:10px;border:1px solid; padding: 10px;',
+                                                  uiOutput("math")),
+                                           column(12, imageOutput("model")),
+                                           column(12,
+                                                  column(6, plotOutput('spec')),
+                                                  column(6, imageOutput('periods'))))),
                                 tabPanel('RMSEs',
                                          tableOutput("RMSE"), align = 'center'),
                                 tabPanel('Final Model',
+                                         checkboxInput('fcfor',
+                                                       label = 'Forecast Next 6 Months',
+                                                       value = FALSE),
                                          plotlyOutput("final"))
                                          )
                             )
@@ -589,24 +596,54 @@ shinyApp(
            alt = input$FC_Model)
   
     }, deleteFile = FALSE)
+    output$spec = renderPlot({
+      if (input$FC_Model == "Fourier_Period") {
+        pd <- periodogram(oil_freq.tr)
+        plot(pd, type = 'h')
+      }
+    })
+    output$periods = renderImage({
+      if (input$FC_Model == "Fourier_Period") {
+        filename <- normalizePath(file.path(getwd(),
+                                paste('jpeg/', 'spec', '.jpg', sep='')))
+        list(src = filename,
+             alt = '')
+      }
+    })
     output$RMSE = renderTable({RMSEs[order(RMSEs$RMSE),]})
     output$final = renderPlotly({
       if (input$val) {
-       bval <- autoplot(oil_freq.tr) + autolayer(comb_best) +
-                  geom_ribbon(data = int$mean, aes(ymin = int$interval[,2], ymax = int$interval[,4]),
-                              fill = 'blue', alpha = .2) +
-                  geom_ribbon(data = int$mean, aes(ymin = int$interval[,1], ymax = int$interval[,3]),
-                              fill= 'red', alpha = .2)
-       ggplotly(bval)
+        if (!input$fcfor) {
+          bval <- autoplot(oil_freq.val) + autolayer(comb_best, series = 'Best Model - Validation')
+          ggplotly(bval)
+        }
+        else if (input$fcfor) {
+          bval <- autoplot(oil_freq.tr) + autolayer(oil_freq.val, series = 'Validation Data') +
+                    autolayer(comb_best_for, series = '6 Month Forecast') +
+                    geom_ribbon(data = int.for$mean, aes(ymin = int.for$interval[,2], ymax = int.for$interval[,4]),
+                                fill = 'blue', alpha = .2) +
+                    geom_ribbon(data = int.for$mean, aes(ymin = int.for$interval[,1], ymax = int.for$interval[,3]),
+                                fill= 'red', alpha = .2)
+          ggplotly(bval)
+        }
       }
       else if (!input$val) {
-        bfor <- autoplot(oil_freq) + autolayer(comb_best_for) +
-                  geom_ribbon(data = int.for$mean, aes(ymin = int.for$interval[,2], ymax = int.for$interval[,4]),
-                              fill = 'blue', alpha = .2) +
-                  geom_ribbon(data = int.for$mean, aes(ymin = int.for$interval[,1], ymax = int.for$interval[,3]),
-                              fill= 'red', alpha = .2)
-        ggplotly(bfor)
-
+        if (input$fcfor) {
+          bfor <- autoplot(oil_freq) + autolayer(comb_best_for, series = '6 Month Forecast') +
+                    geom_ribbon(data = int.for$mean, aes(ymin = int.for$interval[,2], ymax = int.for$interval[,4]),
+                                fill = 'blue', alpha = .2) +
+                    geom_ribbon(data = int.for$mean, aes(ymin = int.for$interval[,1], ymax = int.for$interval[,3]),
+                                fill= 'red', alpha = .2)
+          ggplotly(bfor)
+        }
+        else if (!input$fcfor) {
+          bfor <- autoplot(oil_freq.tr) + autolayer(comb_best, series = 'Best Model - Validation') +
+                    geom_ribbon(data = int$mean, aes(ymin = int$interval[,2], ymax = int$interval[,4]),
+                                fill = 'blue', alpha = .2) +
+                    geom_ribbon(data = int$mean, aes(ymin = int$interval[,1], ymax = int$interval[,3]),
+                                fill= 'red', alpha = .2)
+          ggplotly(bfor)
+        }
       }
     })
   })
