@@ -168,11 +168,11 @@ end oil_msts.val = `r end(oil_msts.val)`<br/>
 >- Best Model
 </div>
 
-#The models
+#Analysis
 
 ##
 
-```{r ModelsShiny, echo=FALSE, warning=FALSE, eval=FALSE, height="800px", width="1400px"}
+```{r ModelsShiny, echo=FALSE, warning=FALSE, eval=FALSE}
 require(plotly)
 require(shiny)
 require(shinythemes)
@@ -230,7 +230,7 @@ shinyApp(
                                 checkboxInput('oil_data',
                                                        label = "Show datasets code",
                                                        value = FALSE)),
-                              mainPanel(imageOutput('code')))
+                              mainPanel(imageOutput("code")))
                             ),
                    tabPanel('RMSEs',
                             tableOutput("RMSE"), align = 'center'),
@@ -611,14 +611,21 @@ shinyApp(
       }
         })
     output$model = renderImage({
+      if (input$FC_Model2 == 'Com_Best') {
+        filename <- normalizePath(file.path(getwd(),
+                                paste('jpeg/', 'Final_Model', '.jpg', sep='')))
+        list(src = filename,
+            alt = input$FC_Model2)
+      }
+      else {
       # When input$n is 3, filename is ./images/image3.jpeg
-      filename <- normalizePath(file.path(getwd(),
-                                paste('jpeg/', input$FC_Model2, '.jpg', sep='')))
-   
-      # Return a list containing the filename and alt text
-      list(src = filename,
-           alt = input$FC_Model2)
-  
+        filename <- normalizePath(file.path(getwd(),
+                                  paste('jpeg/', input$FC_Model2, '.jpg', sep='')))
+     
+        # Return a list containing the filename and alt text
+        list(src = filename,
+             alt = input$FC_Model2)
+      }
     }, deleteFile = FALSE)
     output$spec = renderPlot({
       if (input$FC_Model2 == "Fourier_Period") {
@@ -688,6 +695,20 @@ shinyApp(
                                 paste('jpeg/', input$FC_Model3, '_code.jpg', sep='')))
         list(src = filename,
             alt = input$FC_Model3)
+      }
+    }, deleteFile = FALSE)
+    output$bestmodel = renderImage({
+      if (input$FC_Model2 == 'Com_Best') {
+        filename <- normalizePath(file.path(getwd(),
+                                paste('jpeg/', 'Final_Model', '.jpg', sep='')))
+        list(src = filename,
+            alt = input$FC_Model2)
+      }
+      else {
+        filename <- normalizePath(file.path(getwd(),
+                                paste('jpeg/', 'blank', '.jpg', sep='')))
+        list(src = filename,
+            alt = input$FC_Model2)
       }
     }, deleteFile = FALSE)
   })
