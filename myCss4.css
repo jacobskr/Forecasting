@@ -11,10 +11,10 @@ slides > slide.title-slide hgroup h1 {
 body slides > slide
 {
   height: 800px;
-  width: 1400px;
+  width: 1600px;
   margin-top: -400px;    /* half of height */
-  margin-left: -700px;
-  padding:10px 10px;
+  margin-left: -800px;
+  padding:30px 30px;
 }
 
 
