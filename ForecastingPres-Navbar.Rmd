@@ -1,0 +1,695 @@
+---
+title: "Gasoline Production"
+author: "Team Virginia Premier"
+date: "November 30, 2018"
+output:
+  ioslides_presentation:
+    css: myCss4.css
+autosize: TRUE
+runtime: shiny
+---
+
+```{r, echo=FALSE, eval=TRUE,message=FALSE,warning=FALSE}
+require(knitr)
+require(kableExtra)
+require(data.table)
+require(TSA)
+require(forecast)
+require(xts)
+require(fpp2)
+require(ggplot2)
+require(plotly)
+#require(digest)
+dta <- read.csv("US_OIL.csv")
+dta2 <- tail(dta, 260)[,2]
+
+#seasons data
+seasons <- read.csv("seasons.csv")
+seasons <- tail(seasons, 260)
+seasons <- seasons[,c(2,3,4)]
+seasons.tr <- seasons[1:208,]
+seasons.val <- seasons[209:260,]
+
+# True frequency training/validation sets
+oil_freq <- ts(dta2, frequency = 365.25/7, start=2014-(46/365.25))
+oil_freq.tr <- ts(oil_freq[1:208], freq=365.25/7, start=2014-(46/365.25))
+oil_freq.val <- ts(oil_freq[(length(oil_freq)-51):length(oil_freq)],
+                   freq=365.25/7, 
+                   start=end(oil_freq.tr)+(7/365.25))
+
+
+# Rounded frequency training/validation sets
+oil_round <- ts(dta2, freq=52, start = c(2013, 46))
+oil_round.tr <- ts(oil_freq[1:208], freq=52, start=c(2013, 46))
+oil_round.val <- ts(oil_freq[209:260], freq=52, start=c(2017, 46))
+
+# MSTS frequency datasets
+wkly <- 365.25 / 7
+mthly <- wkly / 12
+qtrly <- wkly / 4
+oil_msts <- data.frame(dta2)
+oil_msts[,c(2,3,4)] <- seasons
+oil_msts <- msts(oil_msts, seasonal.periods=c(wkly, mthly, qtrly),
+                 ts.frequency = wkly, start=2014-(46/365.25))
+oil_msts.tr <-msts(oil_msts[1:208,], seasonal.periods=c(wkly, mthly, qtrly), 
+                   ts.frequency = wkly, start=2014-(46/365.25))
+oil_msts.val <- msts(oil_msts[(length(oil_freq)-51):length(oil_freq),],
+                    seasonal.periods=c(wkly, mthly, qtrly),
+                    ts.frequency = wkly,
+                    start=end(oil_msts.tr)+(7/365.25))
+colnames <- c("barrels", "winter", "spring", "summer")
+colnames(oil_msts.tr) <- colnames
+colnames(oil_msts.val) <- colnames
+colnames(oil_msts) <- colnames
+
+```
+
+#The Data
+## 
+<div class="centered">
+### <b> U.S. Energy Information Administration </b>
+
+Weekly U.S Product Supplied of Finished Motor Gasoline
+
+- Time Series - Weekly data points from 2/8/1991 to current
+- Dependent Variable - Average barrels per day (thousands)
+- Created dummy variables for each season to use as exogenous variables
+</div>
+
+```{r, echo=FALSE, eval=TRUE}
+oil <- autoplot(ts(dta$barrels, start=1991 +(38/7)/365.25, frequency = 365.25/7),
+                ylab = "Barrels (Thousands)", main = "U.S. Gasoline Production")
+oil <- ggplotly(oil)
+# htmlwidgets::saveWidget(as_widget(oil), file = "oil.html")
+```
+<!-- <div> -->
+<!-- <iframe src="C:/Users/User/Desktop/Forecasting/Group_Project/oil.html" style="position:absolute;height:50%;width:70%"></iframe> -->
+<!-- </div> -->
+\center `r oil`
+
+## 
+<div class="centered">
+### <b> Data Subsets </b>
+
+For forecasting purposes, we will be looking at the last 260 weeks (~5 years)
+
+- Training set (.tr) - Week 1 through week 206 (~3 years)
+- Validation set (.val) - Remaining 52 weeks (final ~1 year)
+</div>
+```{r, echo=FALSE, fig.align='center', warning=FALSE}
+oil_seg <- ggplot() +
+            autolayer(oil_freq.val, series = 'Validation Data') +
+            autolayer(oil_freq.tr, series = 'Training Data') +
+            labs(title = "U.S. Gasoline Production",
+                 subtitle="Training and Validation Data",
+                 y="Barrels (Thousands)", x = "Years")
+oil_seg <-  ggplotly(oil_seg)
+#htmlwidgets::saveWidget(as_widget(oil_seg), file = "oil_seg.html")
+```
+
+\center `r oil_seg`
+
+
+## {.build}
+<div class="centered">
+### <b>Data Variations and Frequencies</b>
+</div>
+<br/>
+<br/>
+<br/>
+<br/>
+
+<div class="col3">
+###oil_round
+frequency = `r frequency(oil_round)`<br/>
+start oil_round.tr = (2013, 46)<br/>
+end oil_round.val = (2018, 45)<br/>
+
+###oil_freq
+frequency = `r round(wkly,3)` $(365.25/7)$<br/>
+start oil_freq.tr = `r start(oil_freq.tr)`<br/>
+end oil_freq.val = `r end(oil_freq.val)`<br/>
+
+###oil_msts
+frequency = `r round(wkly,3)`, `r round(mthly,3)`, `r round(qtrly,3)`<br/>
+start oil_msts.tr = `r start(oil_msts.tr)`<br/>
+end oil_msts.val = `r end(oil_msts.val)`<br/>
+</div>
+
+#Approach
+##
+<div class="centered">
+### <b>Forecasting Approaches</b>
+</div>
+
+<br/>
+<div class="columns-2">
+####First Models: 
+>- Naive
+>- STLM
+>- Auto Arima (w/ and w/o seasonal regressor)
+
+####Fourier Models:
+>- Data periods, test number of regressors (w/ and w/o seasonal regressor)
+>- Highest spectral power densities, iterate regressors
+
+####Mutiseasonal Models:
+>- TBATs
+>- MSTS Arima with covariates
+
+####Neural Network Models:
+>- Neural Network (w/ and w/o seasonal regressor)
+
+####Combined Models:
+>- Multiseasonal
+>- Fourier
+>- External Regressors
+>- Neural Networks
+>- Best Model
+</div>
+
+#The models
+
+##
+
+```{r ModelsShiny, echo=FALSE, warning=FALSE, eval=FALSE, height="800px", width="1400px"}
+require(plotly)
+require(shiny)
+require(shinythemes)
+
+models = c("Naive", "ETS", "STLM", "Base_Arima",
+            "Base_Arima_Sns", "Fourier_Reg",
+            "Fourier_Reg_Sns", "Fourier_Period",
+            "TBATS", "MSTS_Sns", "NN", "NN_Sns",
+            "Com_MSTS", "Com_Fourier", "Com_Sns",
+            "Com_NN", "Com_Best")
+
+#source('oilprod.R', local = TRUE)
+shinyApp(
+  ui <- navbarPage('Forecast Models', theme = shinytheme('united'),
+                   tabPanel("Decomposition",
+                            plotOutput("decom", height = '800px')),
+                   tabPanel('Forecasts',
+                            sidebarLayout(
+                              sidebarPanel(width = 2,
+                                selectInput(inputId = "FC_Model",
+                                            label = "Model",
+                                            choices = models),
+                                checkboxInput(inputId = "val",
+                                            label = "Show Validation Data",
+                                            value = FALSE)),
+                              mainPanel(
+                                        fluidRow(
+                                          column(12, plotlyOutput("fcmodel")),
+                                          column(12, plotOutput("residuals")))))
+                            ),
+                   tabPanel("Models/Notes",
+                            sidebarLayout(
+                              sidebarPanel(width = 2,
+                                selectInput(inputId = "FC_Model2",
+                                            label = "Model",
+                                            choices = models)),
+                              mainPanel(
+                                        fluidRow(
+                                          column(12, align = 'center',
+                                                style='margin-bottom:10px;border:1px solid; padding: 10px;',
+                                                uiOutput("math")),
+                                          column(12, imageOutput("model")),
+                                          column(12,
+                                                column(6, plotOutput('spec')),
+                                                column(6,
+                                                       style='margin-top: 150px; padding: 10px;',
+                                                       imageOutput('periods'))))))
+                            ),
+                   tabPanel('Code',
+                            sidebarLayout(
+                              sidebarPanel(width = 2,
+                                selectInput(inputId = "FC_Model3",
+                                            label = "Model",
+                                            choices = models),
+                                checkboxInput('oil_data',
+                                                       label = "Show datasets code",
+                                                       value = FALSE)),
+                              mainPanel(imageOutput('code')))
+                            ),
+                   tabPanel('RMSEs',
+                            tableOutput("RMSE"), align = 'center'),
+                   tabPanel('Final Model',
+                            sidebarLayout(
+                              sidebarPanel(width = 2,
+                                checkboxInput('fcfor',
+                                              label = 'Forecast Next 6 Months',
+                                              value = FALSE),
+                                checkboxInput(inputId = "val2",
+                                            label = "Show Validation Data",
+                                            value = FALSE)),
+                              mainPanel(plotlyOutput("final")))
+                            )
+                   ),
+
+  
+  server = function(input, output) 
+  {
+    output$fcmodel =   renderPlotly({
+      if (input$FC_Model == "Naive"){
+        if (input$val) {
+          naivegg <- ggplot() +
+                     autolayer(Naive$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(naivegg)
+        }
+        else {
+          ggplotly(autoplot(Naive))
+        }
+      }
+      else if (input$FC_Model == "ETS"){
+        if (input$val) {
+          etsgg <- ggplot() +
+                     autolayer(ETS$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(etsgg)
+        }
+        else {
+          ggplotly(autoplot(ETS))
+        }
+      }
+      else if (input$FC_Model == "STLM"){
+        if (input$val) {
+          stlmgg <- ggplot() +
+                     autolayer(STLM$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(stlmgg)
+        }
+        else {
+          ggplotly(autoplot(STLM)) 
+        }
+      }
+      else if (input$FC_Model == "Base_Arima"){
+        if (input$val) {
+          bagg <- ggplot() +
+                     autolayer(Base_Arima$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(bagg)
+        }
+        else {
+          ggplotly(autoplot(Base_Arima)) 
+        }
+      }
+      else if (input$FC_Model == "Base_Arima_Sns"){
+        if (input$val) {
+          basgg <- ggplot() +
+                     autolayer(Base_Arima_Sns$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(basgg)
+        }
+        else {
+          ggplotly(autoplot(Base_Arima_Sns)) 
+        }
+      }
+      else if (input$FC_Model == "Fourier_Reg"){
+        if (input$val) {
+          frgg <- ggplot() +
+                     autolayer(Fourier_Reg$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(frgg)
+        }
+        else {
+          ggplotly(autoplot(Fourier_Reg)) 
+        }
+      }
+      else if (input$FC_Model == "Fourier_Reg_Sns"){
+        if (input$val) {
+          frsgg <- ggplot() +
+                     autolayer(Fourier_Reg_Sns$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(frsgg)
+        }
+        else {
+          ggplotly(autoplot(Fourier_Reg_Sns)) 
+        }
+      }
+      else if (input$FC_Model == "Fourier_Period"){
+        if (input$val) {
+          fpgg <- ggplot() +
+                     autolayer(Fourier_Period$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(fpgg)
+        }
+        else {
+          ggplotly(autoplot(Fourier_Period)) 
+        }
+      }
+      else if (input$FC_Model == "TBATS"){
+        if (input$val) {
+          tbatsgg <- ggplot() +
+                     autolayer(MSTS_TBATS$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(tbatsgg)
+        }
+        else {
+          ggplotly(autoplot(MSTS_TBATS)) 
+        }
+      }
+      else if (input$FC_Model == "MSTS_Sns"){
+        if (input$val) {
+          mstssgg <- ggplot() +
+                     autolayer(MSTS_Sns$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(mstssgg)
+        }
+        else {
+          ggplotly(autoplot(MSTS_Sns)) 
+        }
+      }
+      else if (input$FC_Model == "NN"){
+        if (input$val) {
+          nngg <- ggplot() +
+                     autolayer(NN$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(nngg)
+        }
+        else {
+          ggplotly(autoplot(NN)) 
+        }
+      }
+      else if (input$FC_Model == "NN_Sns"){
+        if (input$val) {
+          nnsgg <- ggplot() +
+                     autolayer(NN_Sns$mean, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(nnsgg)
+        }
+        else {
+          ggplotly(autoplot(NN_Sns)) 
+        }
+      }
+      else if (input$FC_Model == "Com_MSTS"){
+        if (input$val) {
+          cmstsgg <- ggplot() +
+                     autolayer(Com_MSTS, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(cmstsgg)
+        }
+        else {
+          ggplotly(autoplot(oil_freq.tr) + autolayer(Com_MSTS)) 
+        }
+      }
+      else if (input$FC_Model == "Com_Fourier"){
+        if (input$val) {
+          cfgg <- ggplot() +
+                     autolayer(Com_Fourier, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(cfgg)
+        }
+        else {
+          ggplotly(autoplot(oil_freq.tr) + autolayer(Com_Fourier)) 
+        }
+      }
+      else if (input$FC_Model == "Com_Sns"){
+        if (input$val) {
+          csgg <- ggplot() +
+                     autolayer(Com_Sns, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(csgg)
+        }
+        else {
+          ggplotly(autoplot(oil_freq.tr) + autolayer(Com_Sns)) 
+        }
+      }
+      else if (input$FC_Model == "Com_NN"){
+        if (input$val) {
+          cnngg <- ggplot() +
+                     autolayer(Com_NN, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(cnngg)
+        }
+        else {
+          ggplotly(autoplot(oil_freq.tr) + autolayer(Com_NN)) 
+        }
+      }
+      else if (input$FC_Model == "Com_Best"){
+        if (input$val) {
+          cbestgg <- ggplot() +
+                     autolayer(Com_Best, series = 'Forecast') +
+                     autolayer(oil_freq.val, series = 'Validation Data')
+          ggplotly(cbestgg)
+        }
+        else {
+          ggplotly(autoplot(oil_freq.tr) + autolayer(Com_Best)) 
+        }
+      }
+    })
+    output$residuals = renderPlot({
+      if (input$FC_Model == "Naive") {
+        checkresiduals(Naive, test=F)
+      }
+      else if (input$FC_Model == "ETS") {
+        checkresiduals(ETS, test=F)
+      }
+      else if (input$FC_Model == "STLM") {
+        checkresiduals(STLM, test=F)
+      }
+      else if (input$FC_Model == "Base_Arima") {
+        checkresiduals(Base_Arima, test=F)
+      }
+      else if (input$FC_Model == "Base_Arima_Sns") {
+        checkresiduals(Base_Arima_Sns, test=F)
+      }
+      else if (input$FC_Model == "Fourier_Reg") {
+        checkresiduals(Fourier_Reg, test=F)
+      }
+      else if (input$FC_Model == "Fourier_Reg_Sns") {
+        checkresiduals(Fourier_Reg_Sns, test=F)
+      }
+      else if (input$FC_Model == "Fourier_Period") {
+        checkresiduals(Fourier_Period, test=F)
+      }
+      else if (input$FC_Model == "TBATS") {
+        checkresiduals(TBATS, test=F)
+      }
+      else if (input$FC_Model == "MSTS_Sns") {
+        checkresiduals(MSTS_Sns, test=F)
+      }
+      else if (input$FC_Model == "NN") {
+        checkresiduals(NN, test=F)
+      }
+      else if (input$FC_Model == "NN_Sns") {
+        checkresiduals(NN_Sns, test=F)
+      }
+    })
+    output$decom = renderPlot(plot(decom_oil))
+    output$math = renderUI({
+      if (input$FC_Model2 == "Naive") {
+        shiny::withMathJax(
+          helpText('Simple Baseline Forecast:$$y_{t+h|t} = y_t$$',
+                   br(),
+                   'Our $$y_t = 9496$$',
+                   br(),
+                   'Therefore, for any forecast:$$y_{t+h} = 9496$$')
+                          )
+      }
+      else if (input$FC_Model2 == "ETS") {
+        shiny::withMathJax(
+          helpText('ETS(A,N,N) Model: $$Measurement: y_t = \\ell_{t-1} + \\varepsilon_t$$',
+                   '$$State Equation: \\ell_t = \\ell_{t-1} + \\alpha\\varepsilon_t$$',
+                   'Our initial state \\(\\ell_t \\approx 8754\\) and \\(\\alpha = .4107\\):',
+                   'Therefore, $$Measurement: y_t = 8754 + \\ell_t$$',
+                   '$$State Equation: \\ell_{t-1} = 8754 + .4107\\varepsilon_t$$'))
+      }
+      else if (input$FC_Model2 == "STLM") {
+        shiny::withMathJax(
+          helpText(''))
+      }
+      else if (input$FC_Model2 == "Base_Arima") {
+        shiny::withMathJax(
+          helpText('ARIMA(4,1,1)(1,1,0)[52]',
+                   br(),
+                   'General Notation of Arima(p,d,q)(P,D,Q)[S]: $$\\Phi_P(B^S)\\phi_p(B)\\nabla^d\\nabla^D_sy_t = 
+                   \\theta_q(B)\\Theta_Q(B^S)e_t$$',
+                   'Where:',
+                   br(),
+                   '\\(\\Phi_P(B^S)=(1-\\Phi_1B^S -...-\\Phi_pB^{SP})\\) is the seasonal AR operator of order P;',
+                   br(),
+                   '\\(\\phi_p(B)=(1-\\phi_1B-...-\\phi_pB^P)\\) is the non-seasonal AR operator of order p;',
+                   br(),
+                   '\\(\\nabla^D_s=(1-B^S)^D\\) is the seasonal differencing;',
+                   br(),
+                   '\\(\\nabla^d=(1-B)^d\\) is the non-seasonal differencing;',
+                   br(),
+                   '\\(\\theta_q(B)=(1+\\theta_qB+...+\\theta_qB^q)\\) is the non-seasonal MA operator of order q;',
+                   br(),
+                   '\\(\\Theta_Q(B^S)=(1+\\Theta_1B^S+...+\\Theta_QB^{SQ})\\) is the seasonal MA operator of order Q;',
+                   br(),
+                   br(),
+                   'Our Model: ARIMA(4,1,1)(1,1,0)[52]:',
+                   br(),
+                   '$$(1+0.2632B^1+0.1925B^2+0.1664B^3-0.0857B^4)(1+0.5065B^{52})(1-B)(1-B^{52})y_t=(1+0.5667B)e_t$$'))
+      }
+      else if (input$FC_Model2 == "Base_Arima_Sns") {
+        shiny::withMathJax(
+          helpText('Regression model with seasonal dummy variables and ARIMA(2,1,3)(1,0,0)[52] Errors',
+                   br(),
+                   br(),
+                   'Our coefficeints: $$fall - Base Level$$',
+                   '$$winter = -196.1021$$',
+                   '$$spring = 242.4069$$',
+                   '$$summer = 352.8888$$',
+                   'Can logically think of our model as: 
+                   $$y_t=-196.1021(winter)_t+242.4069(spring)_t+352.8888(summer)_t+\\eta_t$$',
+                   '\\(\\eta_t\\) is an ARIMA(2,1,3)(1,0,0)[52] process'))
+      }
+      else if (input$FC_Model2 == "Fourier_Reg") {
+        shiny::withMathJax(
+          helpText('Regression with optimal Fourier regressors, ARIMA(0,1,1) Errors',
+                   br(),
+                   br(),
+                   'Number of Fourier regressors chosen by optimizing AICc',
+                   br(),
+                   br(),
+                   'Optimal AICc occured at K=5',
+                   '$$y_t = bt + \\sum_{j=1}^{5} \\left[ \\alpha_j\\sin\\left(\\frac{2\\pi j t}{52.18}\\right) +       
+                   \\beta_j\\cos\\left(\\frac{2\\pi j t}{52.18}\\right) \\right] + \\eta_t$$',
+                   '\\(\\eta_t\\) is an ARIMA(0,1,1) process'))
+      }
+      else if (input$FC_Model2 == "Fourier_Reg_Sns") {
+        shiny::withMathJax(
+          helpText('Regression with optimal Fourier regressors and seasonal dummy variables', 
+                   'ARIMA(0,1,1) Errors',
+                   br(),
+                   br(),
+                   'Number of Fourier regressors chosen by optimizing AICc',
+                   br(),
+                   br(),
+                   'Optimal AICc occured at K=4',
+                   'Our coefficeints: $$fall - Base Level$$',
+                   '$$winter = 105.1668$$',
+                   '$$spring = 421.4939$$',
+                   '$$summer = 188.3518$$',
+                   '$$y_t = bt + \\sum_{j=1}^{4} \\left[ \\alpha_j\\sin\\left(\\frac{2\\pi j t}{52.18}\\right) +       
+                   \\beta_j\\cos\\left(\\frac{2\\pi j t}{52.18}\\right) \\right] +
+                   105.1668(winter)_t + 421.4936(spring)_t + 188.3518(summer)_t + \\eta_t$$',
+                   '\\(\\eta_t\\) is an ARIMA(0,1,1) process'))
+      }
+      else if (input$FC_Model2 == "Fourier_Period") {
+        shiny::withMathJax(
+          helpText('Regression using highest spectral density periods', 
+                   'ARIMA(0,1,1) Errors',
+                   br(),
+                   br(),
+                   'Periods = (54, 72, 30.85714)',
+                   br(),
+                   br(),
+                   'Number of Fourier regressors chosen by optimizing AICc',
+                   br(),
+                   br(),
+                   'Optimal AICc occured at K=(3,1,3)',
+                   '$$y_t = bt + \\sum_{j=1}^{3} \\left[ \\alpha_j^{54}\\sin\\left(\\frac{2\\pi j t}{54}\\right) +       
+                   \\beta_j^{54}\\cos\\left(\\frac{2\\pi j t}{54}\\right) \\right] +
+                   \\sum_{j=1}^{3} \\left[ \\alpha_j^{30.85714}\\sin\\left(\\frac{2\\pi j t}{30.85714}\\right) +       
+                   \\beta_j^{30.85714}\\cos\\left(\\frac{2\\pi j t}{30.85714}\\right) \\right]$$',
+                   '$$- 184.0041\\sin\\left(\\frac{2\\pi t}{72}\\right) + 58.0609\\cos\\left(\\frac{2\\pi t}{72}\\right)
+                   + \\eta_t$$',
+                   '\\(\\eta_t\\) is an ARIMA(0,1,1) process'))
+      }
+      else if (input$FC_Model2 == "TBATS") {
+        shiny::withMathJax(
+          helpText('TBATS(1, {0,0}, -, {<4.35,1>, <13.04,1>, <52.18,3>})',
+                   br(),
+                   br(),
+                   'General Notation: \\(\\text{TBATS}(\\omega, (p,q), \\phi, <m_1,k_1>...<m_j,k_j>)\\)',
+                   '$$\\omega = \\text{Box-Cox parameter}$$',
+                   '$$(p,q) = \\text{An ARMA(p,q) process}$$',
+                   '$$\\phi = \\text{The damping parameter}$$',
+                   '$$<m_j,k_j> = \\text{<Seasonal period, Fourier Transforms>}$$',
+                   'Our \\(\\omega = 1\\) is doing nothing, no Arma process, or damping parameter.',
+                   br(),
+                   'The monthly seasonality has 1 Fourier transform',
+                   br(),
+                   'The quartly seasonality has 1 Fourier transform',
+                   br(),
+                   'The yearly seasonality has 3 Fourier transforms'))
+      }
+        })
+    output$model = renderImage({
+      # When input$n is 3, filename is ./images/image3.jpeg
+      filename <- normalizePath(file.path(getwd(),
+                                paste('jpeg/', input$FC_Model2, '.jpg', sep='')))
+   
+      # Return a list containing the filename and alt text
+      list(src = filename,
+           alt = input$FC_Model2)
+  
+    }, deleteFile = FALSE)
+    output$spec = renderPlot({
+      if (input$FC_Model2 == "Fourier_Period") {
+        pd <- periodogram(oil_freq.tr)
+        plot(pd, type = 'h')
+      }
+    })
+    output$periods = renderImage({
+      if (input$FC_Model2 == "Fourier_Period") {
+        filename <- normalizePath(file.path(getwd(),
+                                paste('jpeg/', 'spec', '.jpg', sep='')))
+        list(src = filename,
+             alt = '')
+      }
+      else {
+        filename <- normalizePath(file.path(getwd(),
+                                paste('jpeg/', 'blank', '.jpg', sep='')))
+        list(src = filename,
+             alt = '')
+      }
+    }, deleteFile = FALSE)
+    output$RMSE = renderTable({RMSEs[order(RMSEs$RMSE),]})
+    output$final = renderPlotly({
+      if (input$val2) {
+        if (!input$fcfor) {
+          bval <- autoplot(oil_freq.val) + autolayer(comb_best, series = 'Best Model - validation')
+          ggplotly(bval)
+        }
+        else if (input$fcfor) {
+          bval <- autoplot(oil_freq.tr) + autolayer(oil_freq.val, series = 'validation Data') +
+                    autolayer(comb_best_for, series = '6 Month Forecast') +
+                    geom_ribbon(data = int.for$mean, aes(ymin = int.for$interval[,2], ymax = int.for$interval[,4]),
+                                fill = 'blue', alpha = .2) +
+                    geom_ribbon(data = int.for$mean, aes(ymin = int.for$interval[,1], ymax = int.for$interval[,3]),
+                                fill= 'red', alpha = .2)
+          ggplotly(bval)
+        }
+      }
+      else if (!input$val2) {
+        if (input$fcfor) {
+          bfor <- autoplot(oil_freq) + autolayer(comb_best_for, series = '6 Month Forecast') +
+                    geom_ribbon(data = int.for$mean, aes(ymin = int.for$interval[,2], ymax = int.for$interval[,4]),
+                                fill = 'blue', alpha = .2) +
+                    geom_ribbon(data = int.for$mean, aes(ymin = int.for$interval[,1], ymax = int.for$interval[,3]),
+                                fill= 'red', alpha = .2)
+          ggplotly(bfor)
+        }
+        else if (!input$fcfor) {
+          bfor <- autoplot(oil_freq.tr) + autolayer(comb_best, series = 'Best Model - validation') +
+                    geom_ribbon(data = int$mean, aes(ymin = int$interval[,2], ymax = int$interval[,4]),
+                                fill = 'blue', alpha = .2) +
+                    geom_ribbon(data = int$mean, aes(ymin = int$interval[,1], ymax = int$interval[,3]),
+                                fill= 'red', alpha = .2)
+          ggplotly(bfor)
+        }
+      }
+    })
+    output$code = renderImage({
+      if (input$oil_data) {
+        filename <- normalizePath(file.path(getwd(),
+                                paste('jpeg/', 'data', '_code.jpg', sep='')))
+        list(src = filename,
+            alt = input$FC_Model3)
+      }
+      else {
+        filename <- normalizePath(file.path(getwd(),
+                                paste('jpeg/', input$FC_Model3, '_code.jpg', sep='')))
+        list(src = filename,
+            alt = input$FC_Model3)
+      }
+    }, deleteFile = FALSE)
+  })
+```
+
