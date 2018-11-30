@@ -465,7 +465,7 @@ shinyApp(
         checkresiduals(Fourier_Period, test=F)
       }
       else if (input$FC_Model == "TBATS") {
-        checkresiduals(TBATS, test=F)
+        checkresiduals(MSTS_TBATS, test=F)
       }
       else if (input$FC_Model == "MSTS_Sns") {
         checkresiduals(MSTS_Sns, test=F)

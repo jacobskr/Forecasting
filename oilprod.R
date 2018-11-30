@@ -188,7 +188,7 @@ for (i in 2:length(model_list)) {
 combn(names, bestmodel$i)[,bestmodel$c]
 
 comb_best <- ts(bestmodel$means, frequency = 365.25/7, start = start(oil_freq.val))
-
+Com_Best <- comb_best
 
 #Compare Models
 NAIVE_ac <- accuracy(fc_naive, oil_freq.val)
